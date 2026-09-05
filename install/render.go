@@ -38,20 +38,22 @@ type harness struct {
 
 // harnessFor returns the installed layer of one provider.
 //
-// Claude Code is the only harness implemented. Codex, opencode, and a profile
-// declaring no provider at all report [bootdir.ErrUnsupportedProvider] rather
-// than falling back to a layout that would write one harness's files into
-// another's directory.
+// Claude Code and Codex are implemented. opencode, and a profile declaring no
+// provider at all, report [bootdir.ErrUnsupportedProvider] rather than falling
+// back to a layout that would write one harness's files into another's
+// directory.
 func harnessFor(p profile.Provider) (harness, error) {
 	switch p {
 	case profile.ProviderClaude:
 		return harness{dir: ClaudeDirName, renderers: ClaudeRenderers(), layout: ClaudeLayout()}, nil
+	case profile.ProviderCodex:
+		return harness{dir: ".", renderers: CodexRenderers(), layout: CodexLayout()}, nil
 	case "":
 		return harness{}, fmt.Errorf("%w: the resolved profile declares no provider",
 			bootdir.ErrUnsupportedProvider)
 	default:
-		return harness{}, fmt.Errorf("%w: %q — cairn renders an installed layer for %q and no other harness yet",
-			bootdir.ErrUnsupportedProvider, p, profile.ProviderClaude)
+		return harness{}, fmt.Errorf("%w: %q — cairn renders installed layers for %q and %q",
+			bootdir.ErrUnsupportedProvider, p, profile.ProviderClaude, profile.ProviderCodex)
 	}
 }
 
@@ -236,6 +238,9 @@ func markGenerated(render func(inst *bootdir.Instance) ([]File, error), profileI
 // them into a failed install instead of a file appearing somewhere else in the
 // operator's home.
 func checkInside(files []File, dir string) error {
+	if dir == "." {
+		return nil
+	}
 	prefix := dir + "/"
 	for _, f := range files {
 		if !strings.HasPrefix(f.Path, prefix) {

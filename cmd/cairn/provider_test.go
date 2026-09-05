@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/chrispian/cairn/bootdir"
+	"github.com/chrispian/cairn/profile"
 )
 
 // TestProviderDefaultsToTheProfilesOwn is the property that makes this flag
@@ -76,7 +77,7 @@ func TestProviderSelectsTheSettingsDocument(t *testing.T) {
 
 // TestProviderRefusesATargetWithNoLayout is the scope fence, stated as a test.
 //
-// Cairn knows the name "codex" and renders nothing for it, and those are two
+// Cairn knows the name "opencode" and renders nothing for it, and those are two
 // different facts. The refusal has to name the flag rather than the profile —
 // the profile says claude, and sending the reader to it would send them to a
 // file that is not wrong — and it has to plant nothing, because a boot
@@ -98,12 +99,12 @@ func TestProviderRefusesATargetWithNoLayout(t *testing.T) {
 		"--profile", bundle,
 		"--boot-root", bootRoot,
 		"--session", "s1",
-		"--provider", "codex",
+		"--provider", "opencode",
 	}, &stdout, &stderr)
 	if !errors.Is(err, bootdir.ErrUnsupportedProvider) {
-		t.Fatalf("boot --provider codex = %v, want bootdir.ErrUnsupportedProvider", err)
+		t.Fatalf("boot --provider opencode = %v, want bootdir.ErrUnsupportedProvider", err)
 	}
-	for _, want := range []string{`--provider "codex"`, `"claude"`} {
+	for _, want := range []string{`--provider "opencode"`, `"claude"`, `"codex"`} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the refusal %q does not carry %s", err, want)
 		}
@@ -113,10 +114,71 @@ func TestProviderRefusesATargetWithNoLayout(t *testing.T) {
 	}
 }
 
+// TestProviderCodexBootRendersNativeArtifacts proves Codex is now a real
+// materialization target while keeping the shared Claude-subagent fixture for
+// unsupported-feature tests.
+func TestProviderCodexBootRendersNativeArtifacts(t *testing.T) {
+	ctx := context.Background()
+	home := t.TempDir()
+	bundle := filepath.Join(home, "bundle")
+	bootRoot := filepath.Join(home, "boot")
+	scopeDir := filepath.Join(home, "repo")
+	mustMkdir(t, scopeDir)
+	seedCodexable(t, bundle, scopeDir)
+
+	var stdout, stderr bytes.Buffer
+	err := run(ctx, []string{
+		"boot", "coder",
+		"--profile", bundle,
+		"--boot-root", bootRoot,
+		"--session", "s1",
+		"--provider", "codex",
+		"--json",
+	}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("boot --provider codex: %v\nstderr: %s", err, stderr.String())
+	}
+	var report bootReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("decode boot report: %v\n%s", err, stdout.String())
+	}
+	if report.Provider != profile.ProviderCodex.String() {
+		t.Fatalf("provider = %q, want codex", report.Provider)
+	}
+	if report.CwdPreference != "boot_dir" {
+		t.Errorf("cwd_preference = %q, want boot_dir", report.CwdPreference)
+	}
+	if !strings.Contains(strings.Join(report.ProjectDirArg, " "), "{{.ProjectDir}}") {
+		t.Errorf("project_dir_arg = %v, want a project placeholder", report.ProjectDirArg)
+	}
+	if len(report.EnvAmendments) == 0 || !strings.Contains(report.EnvAmendments[0], "{{.BootDir}}") {
+		t.Errorf("env_amendments = %v, want provider boot-dir placeholder", report.EnvAmendments)
+	}
+	if report.SettingsPath == nil || !strings.HasSuffix(*report.SettingsPath, "config.toml") {
+		t.Fatalf("settings_path = %v, want config.toml", report.SettingsPath)
+	}
+	agents := read(t, report.BootDir, "AGENTS.md")
+	if !strings.Contains(agents, "coder on codex") {
+		t.Errorf("AGENTS.md does not carry the Codex materialization values:\n%s", agents)
+	}
+	config := read(t, report.BootDir, "config.toml")
+	for _, want := range []string{`model = 'gpt-5'`, `[sandbox_workspace_write]`, `writable_roots`} {
+		if !strings.Contains(config, want) {
+			t.Errorf("config.toml missing %q:\n%s", want, config)
+		}
+	}
+	for _, absent := range []string{"auth.json", ".mcp.json"} {
+		if _, err := os.Stat(filepath.Join(report.BootDir, absent)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("Codex boot planted %s: %v", absent, err)
+		}
+	}
+}
+
 // TestProviderRefusesAWordThatIsNoHarness is the other refusal, and it is a
-// different one. "codex" is a provider cairn cannot render; "cluade" is not a
-// provider. One message for both would leave the operator who typo'd looking
-// for a feature and the operator who asked for codex looking for a typo.
+// different one. "opencode" is a provider cairn cannot render; "cluade" is
+// not a provider. One message for both would leave the operator who typo'd
+// looking for a feature and the operator who asked for opencode looking for a
+// typo.
 func TestProviderRefusesAWordThatIsNoHarness(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()
@@ -208,12 +270,12 @@ func TestInstallRefusesATargetWithNoLayout(t *testing.T) {
 		"install", "base",
 		"--profile", bundle,
 		"--root", root,
-		"--provider", "codex",
+		"--provider", "opencode",
 	}, &stdout, &stderr)
 	if !errors.Is(err, bootdir.ErrUnsupportedProvider) {
-		t.Fatalf("install --provider codex = %v, want bootdir.ErrUnsupportedProvider", err)
+		t.Fatalf("install --provider opencode = %v, want bootdir.ErrUnsupportedProvider", err)
 	}
-	if !strings.Contains(err.Error(), `--provider "codex"`) {
+	if !strings.Contains(err.Error(), `--provider "opencode"`) {
 		t.Errorf("the refusal %q does not name the flag that chose the target", err)
 	}
 	entries, readErr := os.ReadDir(root)
@@ -223,6 +285,25 @@ func TestInstallRefusesATargetWithNoLayout(t *testing.T) {
 	if len(entries) != 0 {
 		t.Errorf("a refused install left %d entries in the root", len(entries))
 	}
+}
+
+func seedCodexable(t *testing.T, bundle, scopeDir string) {
+	t.Helper()
+	writeProfile(t, bundle, bundleProfile{
+		ID:       "base",
+		Abstract: true,
+		Name:     "Base",
+		Provider: "claude",
+		Spec: map[string]string{
+			"templates": `{
+				"AGENTS.md": "# <!-- cairn:value profile --> on <!-- cairn:value provider -->\n\nscope: <!-- cairn:value scope -->\n"
+			}`,
+			"settings": `{"codex":{"model":"gpt-5"}}`,
+			"access":   `{"directories":["` + scopeDir + `"]}`,
+		},
+	})
+	writeProfile(t, bundle, bundleProfile{ID: "coder", Extends: "base", Name: "Coder"})
+	writeBinding(t, bundle, "coder", "coder", scopeDir)
 }
 
 // bootInto runs one boot into a session of its own and returns the directory

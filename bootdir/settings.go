@@ -121,6 +121,9 @@ func RenderSettings(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
+	if inst.Layout.Provider == profile.ProviderCodex {
+		return renderCodexConfig(inst)
+	}
 	stored, declared, err := inst.Profile.Spec.Settings(inst.Layout.Provider)
 	if err != nil {
 		return nil, err
@@ -175,11 +178,9 @@ func RenderSettings(inst *Instance) ([]File, error) {
 // out of a full document — puts the mapping here instead, which is the hardcode
 // the accessor exists to remove.
 //
-// Claude Code is the only harness with a mapping written. Codex grants
-// directories through a different file under a different key, and returning
-// nothing for it would mean a profile declaring access got none, silently, so
-// it is refused by name instead. Nothing reaches this with another provider
-// today: [LayoutFor] refuses every other one before a renderer runs.
+// This helper is Claude-only. Codex grants directories through config.toml
+// under a different key, and [RenderSettings] dispatches to the Codex TOML
+// renderer before this function is called.
 func accessFragment(inst *Instance) (json.RawMessage, error) {
 	dirs, err := grantedDirectories(inst)
 	if err != nil || len(dirs) == 0 {

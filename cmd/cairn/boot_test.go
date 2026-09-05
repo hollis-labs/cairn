@@ -209,7 +209,7 @@ func TestBootJSONDescribesTheBootForALauncher(t *testing.T) {
 
 	// The key set is the contract. A key that came and went would make a
 	// consumer handle two shapes for one meaning.
-	want := []string{"boot_dir", "cwd_preference", "profile_root", "project_dir_arg", "provider",
+	want := []string{"boot_dir", "cwd_preference", "env_amendments", "profile_root", "project_dir_arg", "provider",
 		"saved_binding_path", "saved_dropped_sets", "scope", "settings_path"}
 	if got := slices.Sorted(maps.Keys(raw)); !slices.Equal(got, want) {
 		t.Errorf("the document carries %v, want exactly %v", got, want)

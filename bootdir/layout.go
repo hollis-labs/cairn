@@ -27,15 +27,25 @@ import (
 // matters only where a layout has to map a destination onto a path of its own.
 const AgentsFileName = "AGENTS.md"
 
-// PointerFileName is the harness's own instruction file. Cairn declares the
-// name because a layout has to know which template destination lands there;
-// what the file holds is the profile's, like every other template.
+// PointerFileName is Claude Code's own instruction file. Cairn declares the
+// name because Claude's installed layout has to know which template
+// destination lands there; what the file holds is the profile's, like every
+// other template.
 const PointerFileName = "CLAUDE.md"
 
 // SkillsDirName is the directory, relative to the boot directory root,
 // declared skills are planted into. No provider's BootDirSpec declares it;
 // it is Claude Code's on-disk convention, one directory per skill.
 const SkillsDirName = ".claude/skills"
+
+// CodexSkillsDirName is the user/repository skill directory Codex discovers.
+// Unlike Claude Code, Codex does not read skills from its config directory;
+// user-installed skills live under ~/.agents/skills and project skills under a
+// repository's .agents/skills tree.
+const CodexSkillsDirName = ".agents/skills"
+
+// CodexConfigFileName is the configuration document Codex reads as TOML.
+const CodexConfigFileName = "config.toml"
 
 // SkillFileName is the file a skill directory must hold for a harness to load
 // the skill at all.
@@ -149,12 +159,13 @@ type Layout struct {
 	// the caller printing a boot directory can also print how to open it.
 	CwdPreference goprovider.CwdPreference
 	ProjectDirArg string
+	EnvAmendments []string
 }
 
 // LayoutFor returns the [Layout] one provider's boot directory is rendered
 // through.
 //
-// Claude Code is the only harness implemented. Codex and opencode report
+// Claude Code and Codex are implemented. opencode reports
 // [ErrUnsupportedProvider] rather than falling back to a layout that would
 // write another harness's files, and so does a profile that declares no
 // provider at all.
@@ -171,11 +182,13 @@ func LayoutFor(p profile.Provider) (Layout, error) {
 	switch p {
 	case profile.ProviderClaude:
 		return claudeLayout()
+	case profile.ProviderCodex:
+		return codexLayout()
 	case "":
 		return Layout{}, fmt.Errorf("%w: the resolved profile declares no provider", ErrUnsupportedProvider)
 	default:
-		return Layout{}, fmt.Errorf("%w: %q — cairn renders a boot directory for %q and no other harness yet",
-			ErrUnsupportedProvider, p, profile.ProviderClaude)
+		return Layout{}, fmt.Errorf("%w: %q — cairn renders boot directories for %q and %q",
+			ErrUnsupportedProvider, p, profile.ProviderClaude, profile.ProviderCodex)
 	}
 }
 
@@ -197,6 +210,28 @@ func claudeLayout() (Layout, error) {
 		PromptsDir:    PromptsDirName,
 		CwdPreference: spec.CwdPreference,
 		ProjectDirArg: spec.ProjectDirArg,
+	}, nil
+}
+
+// codexLayout derives the Codex layout from that adapter's BootDirSpec, but
+// names only the artifacts Codex actually needs Cairn to render. The adapter
+// also lists auth.json and a legacy .mcp.json sidecar; Cairn deliberately does
+// not copy live auth into disposable boot directories or plant an inert MCP
+// sidecar for Codex.
+func codexLayout() (Layout, error) {
+	spec := goprovider.NewCodexAdapter().BootDirSpec()
+	declared, err := artifacts(spec, AgentsFileName, CodexConfigFileName)
+	if err != nil {
+		return Layout{}, fmt.Errorf("codex: %w", err)
+	}
+	return Layout{
+		Provider:      profile.ProviderCodex,
+		Agents:        declared[AgentsFileName],
+		Settings:      declared[CodexConfigFileName],
+		SkillsDir:     CodexSkillsDirName,
+		CwdPreference: spec.CwdPreference,
+		ProjectDirArg: spec.ProjectDirArg,
+		EnvAmendments: append([]string(nil), spec.EnvAmendments...),
 	}, nil
 }
 

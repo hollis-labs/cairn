@@ -179,6 +179,15 @@ func writeInRoot(t *testing.T, rootDir, rel, content string) string {
 	return dest
 }
 
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
+}
+
 // entryAt returns the report's entry for a path, and fails when the report
 // carries none or more than one.
 func entryAt(t *testing.T, report *install.Report, rel string) install.Entry {
@@ -327,9 +336,9 @@ func TestNewSweepPlanRefusesALayerItCannotPlan(t *testing.T) {
 	if _, err := install.NewSweepPlan(&install.Layer{}); !errors.Is(err, install.ErrNoProfile) {
 		t.Errorf("NewSweepPlan(empty layer) = %v, want ErrNoProfile", err)
 	}
-	lay := &install.Layer{Profile: &profile.Resolved{ID: "base", Provider: profile.ProviderCodex}}
+	lay := &install.Layer{Profile: &profile.Resolved{ID: "base", Provider: profile.ProviderOpenCode}}
 	if _, err := install.NewSweepPlan(lay); !errors.Is(err, bootdir.ErrUnsupportedProvider) {
-		t.Errorf("NewSweepPlan(codex) = %v, want ErrUnsupportedProvider", err)
+		t.Errorf("NewSweepPlan(opencode) = %v, want ErrUnsupportedProvider", err)
 	}
 }
 
@@ -362,6 +371,78 @@ func TestCheckRootMatchingTheRender(t *testing.T) {
 		if entry := entryAt(t, report, want); entry.Status != install.StatusMatch {
 			t.Errorf("%s is %q", want, entry.Status)
 		}
+	}
+}
+
+func TestCodexInstallPreservesUnrelatedConfigAuthPluginsAndSkills(t *testing.T) {
+	t.Parallel()
+	rootDir := t.TempDir()
+	root, err := install.NewRoot(rootDir)
+	if err != nil {
+		t.Fatalf("NewRoot: %v", err)
+	}
+	source := writeCheckSkills(t, []string{"capture"})
+	shared := filepath.ToSlash(t.TempDir())
+	lay := &install.Layer{
+		Root: root,
+		Profile: &profile.Resolved{
+			ID:       "base",
+			Provider: profile.ProviderCodex,
+			Spec: checkSpec(t, map[string]any{
+				"settings":   map[string]any{"codex": map[string]any{"model": "gpt-5"}},
+				"access":     map[string]any{"directories": []string{shared}},
+				"install":    map[string]any{"skills": []string{"capture"}},
+				"skills_dir": source,
+			}),
+		},
+		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+	}
+
+	writeInRoot(t, rootDir, ".codex/config.toml", `service_tier = "priority"
+
+[mcp_servers.mux]
+command = "/Users/chrispian/go/bin/mux"
+
+[mcp_servers.mux.tools.torque_health]
+approval_mode = "auto"
+`)
+	writeInRoot(t, rootDir, ".codex/auth.json", `{"token":"synthetic"}`)
+	writeInRoot(t, rootDir, ".codex/plugins/cache/plugin.json", `{"name":"keep"}`)
+	writeInRoot(t, rootDir, ".agents/skills/operator/SKILL.md", "# Operator\n")
+
+	if _, err := install.Install(lay); err != nil {
+		t.Fatalf("Install codex layer: %v", err)
+	}
+	config := readFile(t, filepath.Join(rootDir, ".codex", "config.toml"))
+	for _, want := range []string{
+		`service_tier = 'priority'`,
+		`model = 'gpt-5'`,
+		`[mcp_servers.mux]`,
+		`[mcp_servers.mux.tools.torque_health]`,
+		`[sandbox_workspace_write]`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Errorf("config.toml missing %q:\n%s", want, config)
+		}
+	}
+	for _, rel := range []string{
+		".codex/auth.json",
+		".codex/plugins/cache/plugin.json",
+		".agents/skills/operator/SKILL.md",
+	} {
+		if _, err := os.Stat(filepath.Join(rootDir, filepath.FromSlash(rel))); err != nil {
+			t.Errorf("unrelated %s was not preserved: %v", rel, err)
+		}
+	}
+	report, err := install.Check(lay)
+	if err != nil {
+		t.Fatalf("Check codex layer: %v", err)
+	}
+	if !report.Clean() {
+		t.Errorf("Check after Codex install is not clean:\n%s", report)
+	}
+	if got := entryAt(t, report, ".agents/skills/operator").Status; got != install.StatusUnclaimed {
+		t.Errorf("operator skill status = %s, want unclaimed", got)
 	}
 }
 

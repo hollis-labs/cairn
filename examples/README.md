@@ -149,14 +149,21 @@ you pass it:
 
 ```bash
 cairn boot eng --provider claude   # what `cairn boot eng` already did
-cairn boot eng --provider codex    # refused, by name
+cairn boot eng --provider codex    # render Codex-native AGENTS.md/config.toml
 ```
 
-Claude Code is the only layout implemented. `codex` and `opencode` are names
-cairn knows and cannot yet write, and they are refused rather than rendered as
-claude's layout — which would put claude's files at claude's paths for a
-harness that reads neither. A word that is no harness at all is a different
-refusal, and says so.
+Claude Code and Codex layouts are implemented. `opencode` is a name cairn knows
+and cannot yet write, and it is refused rather than rendered as another
+harness's layout. A word that is no harness at all is a different refusal, and
+says so.
+
+Codex boots render `AGENTS.md` and `config.toml`, and `cairn boot --json`
+reports the adapter's cwd, project-dir argument and environment amendments.
+Cairn does not plant `auth.json` into disposable boot directories: a launcher
+that chooses to set `CODEX_HOME={{.BootDir}}` must have an explicit credential
+strategy, and a launcher that preserves the user's existing Codex credentials
+should rely on the installed layer or its own config/profile routing. Codex user
+skills are installed under `~/.agents/skills`, not under `~/.codex`.
 
 It is deliberately **not** one of the four flags below. Those add content to one
 launch, which is why `install` takes none of them; this says where the content

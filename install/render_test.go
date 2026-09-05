@@ -512,10 +512,53 @@ func TestRenderWithoutARoot(t *testing.T) {
 // TestRenderUnsupportedProvider checks that a harness with no installed layout
 // is refused rather than rendered through Claude Code's.
 func TestRenderUnsupportedProvider(t *testing.T) {
-	for _, p := range []profile.Provider{profile.ProviderCodex, profile.ProviderOpenCode, ""} {
+	for _, p := range []profile.Provider{profile.ProviderOpenCode, ""} {
 		lay := fixtureLayer(t, profile.Resolved{ID: "base", Provider: p})
 		if _, err := Render(lay); !errors.Is(err, bootdir.ErrUnsupportedProvider) {
 			t.Errorf("Render for provider %q = %v, want bootdir.ErrUnsupportedProvider", p, err)
+		}
+	}
+}
+
+func TestRenderCodexInstalledLayerUsesCodexAndAgentsRoots(t *testing.T) {
+	skillsDir := t.TempDir()
+	fixtureSkill(t, skillsDir, "capture", map[string]string{"SKILL.md": "# Capture\n"})
+	shared, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolve shared dir: %v", err)
+	}
+	lay := fixtureLayer(t, profile.Resolved{
+		ID:       "base",
+		Provider: profile.ProviderCodex,
+		Spec: fixtureSpec(t, `{
+			"templates": {"AGENTS.md": "codex base"},
+			"settings": {"codex": {"model": "gpt-5"}},
+			"access": {"directories": [`+strconv.Quote(shared)+`]},
+			"install": {"skills": ["capture"]},
+			"skills_dir": `+strconv.Quote(skillsDir)+`
+		}`),
+	})
+	files, err := Render(lay)
+	if err != nil {
+		t.Fatalf("Render codex layer: %v", err)
+	}
+	want := []string{
+		".codex/AGENTS.md",
+		".codex/config.toml",
+		".agents/skills/capture/SKILL.md",
+	}
+	if got := renderedPaths(files); !slices.Equal(got, want) {
+		t.Errorf("Render produced\n\t%v\nwant\n\t%v", got, want)
+	}
+	config := string(renderedFile(t, files, ".codex/config.toml").Content)
+	for _, want := range []string{`model = 'gpt-5'`, `[sandbox_workspace_write]`, `writable_roots = ['` + shared + `']`} {
+		if !strings.Contains(config, want) {
+			t.Errorf("config.toml missing %q:\n%s", want, config)
+		}
+	}
+	for _, f := range files {
+		if strings.Contains(f.Path, "auth.json") || strings.Contains(f.Path, ".mcp.json") {
+			t.Errorf("Render planted adapter sidecar %q", f.Path)
 		}
 	}
 }
@@ -656,9 +699,37 @@ func TestRenderReportsTheKeyItActuallyRead(t *testing.T) {
 // TestPlanterForUnsupportedProvider checks that the caller receives an error
 // rather than an empty layout it might render through.
 func TestPlanterForUnsupportedProvider(t *testing.T) {
-	for _, p := range []profile.Provider{profile.ProviderCodex, profile.ProviderOpenCode, "", "nonesuch"} {
+	for _, p := range []profile.Provider{profile.ProviderOpenCode, "", "nonesuch"} {
 		if _, _, err := PlanterFor(p); !errors.Is(err, bootdir.ErrUnsupportedProvider) {
 			t.Errorf("PlanterFor(%q) = %v, want bootdir.ErrUnsupportedProvider", p, err)
+		}
+	}
+}
+
+func TestPlanterForCodex(t *testing.T) {
+	renderers, layout, err := PlanterFor(profile.ProviderCodex)
+	if err != nil {
+		t.Fatalf("PlanterFor(%q): %v", profile.ProviderCodex, err)
+	}
+	if layout.Provider != profile.ProviderCodex {
+		t.Errorf("PlanterFor returned a layout for %q", layout.Provider)
+	}
+	want := []struct {
+		artifact string
+		fills    bool
+	}{
+		{CodexDirName + "/" + bootdir.AgentsFileName, false},
+		{CodexDirName + "/" + bootdir.CodexConfigFileName, false},
+		{bootdir.CodexSkillsDirName, true},
+	}
+	if len(renderers) != len(want) {
+		t.Fatalf("PlanterFor returned %d renderers, want %d", len(renderers), len(want))
+	}
+	for i, w := range want {
+		fills := renderers[i].Fills != nil
+		if renderers[i].Artifact != w.artifact || fills != w.fills {
+			t.Errorf("renderer %d is %q (fills named subdirectories: %v), want %q (%v)",
+				i, renderers[i].Artifact, fills, w.artifact, w.fills)
 		}
 	}
 }

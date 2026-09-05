@@ -31,6 +31,10 @@ import (
 // Code's installed layer is rendered into.
 const ClaudeDirName = ".claude"
 
+// CodexDirName is the directory, relative to the install root, that Codex's
+// global instruction and configuration files are rendered into.
+const CodexDirName = ".codex"
+
 // SettingsFileName is the name, inside a provider directory, of the settings
 // document the harness reads.
 const SettingsFileName = "settings.json"
@@ -330,6 +334,23 @@ func ClaudeRenderers() []Renderer {
 	}
 }
 
+// CodexRenderers returns the artifacts of Codex's installed layer, in render
+// order. Codex reads its global instruction and configuration files from
+// ~/.codex, but user skills from ~/.agents/skills, so these artifact labels
+// are install-root-relative rather than relative to one provider directory.
+func CodexRenderers() []Renderer {
+	return []Renderer{
+		{Artifact: CodexDirName + "/" + bootdir.AgentsFileName, Render: bootdir.RenderAgentsTemplate},
+		{
+			Artifact:  CodexDirName + "/" + bootdir.CodexConfigFileName,
+			Render:    bootdir.RenderSettings,
+			Merge:     mergeTOMLDocument,
+			Normalize: normalizeTOMLDocument,
+		},
+		{Artifact: bootdir.CodexSkillsDirName, Render: bootdir.RenderInstallSkills, Fills: installedSkillNames},
+	}
+}
+
 // installedSkillNames returns the skill directories the installed layer claims
 // inside its skills directory: the ones spec.install.skills names, and no
 // others.
@@ -358,6 +379,19 @@ func ClaudeLayout() bootdir.Layout {
 		Pointer:   bootdir.Artifact{RelPath: ClaudeDirName + "/" + bootdir.PointerFileName},
 		Settings:  bootdir.Artifact{RelPath: ClaudeDirName + "/" + SettingsFileName},
 		SkillsDir: ClaudeDirName + "/" + SkillsDirName,
+	}
+}
+
+// CodexLayout returns the [bootdir.Layout] the installed Codex layer is
+// rendered through. It deliberately names no pointer, prompt or subagent
+// locations: Codex reads AGENTS.md directly and has no Claude-shaped
+// equivalents for those artifacts in this release.
+func CodexLayout() bootdir.Layout {
+	return bootdir.Layout{
+		Provider:  profile.ProviderCodex,
+		Agents:    bootdir.Artifact{RelPath: CodexDirName + "/" + bootdir.AgentsFileName},
+		Settings:  bootdir.Artifact{RelPath: CodexDirName + "/" + bootdir.CodexConfigFileName, Mode: 0o600},
+		SkillsDir: bootdir.CodexSkillsDirName,
 	}
 }
 

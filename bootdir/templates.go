@@ -39,6 +39,9 @@ func renderTemplates(inst *Instance) ([]File, error) {
 
 	files := make([]File, 0, len(rels))
 	for _, rel := range rels {
+		if rel == PointerFileName && !inst.Layout.Pointer.Declared() {
+			continue
+		}
 		// An empty path is the one case [Render] cannot report usefully: its
 		// error quotes the path, and there is nothing there to quote.
 		if strings.TrimSpace(rel) == "" {

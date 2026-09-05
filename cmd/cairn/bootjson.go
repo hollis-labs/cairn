@@ -169,6 +169,12 @@ type bootReport struct {
 	// this same object, and what {{.ProjectDir}} stands for — says the other.
 	ProjectDirArg []string `json:"project_dir_arg"`
 
+	// EnvAmendments are provider-declared KEY=VALUE entries a launcher should
+	// add to the spawned process environment, with provider placeholders left
+	// for the launcher to substitute at spawn time. Null means the provider
+	// declares none.
+	EnvAmendments []string `json:"env_amendments"`
+
 	// SavedBindingPath is the file --save-as wrote, absolute, or null when no
 	// --save-as was given.
 	//
@@ -274,6 +280,7 @@ func newBootReport(dir string, layout bootdir.Layout, scopeDir, profileRoot stri
 		SettingsPath:     nullable(renderedPath(dir, layout.Settings, files)),
 		CwdPreference:    cwd,
 		ProjectDirArg:    argvTokens(layout.ProjectDirArg),
+		EnvAmendments:    nonEmpty(layout.EnvAmendments),
 		SavedBindingPath: savedPath,
 		SavedDroppedSets: droppedSets,
 	}, nil

@@ -153,7 +153,10 @@ type Renderer struct {
 // Errors wrap [ErrNoProfile], [ErrArtifactPath] or [ErrDuplicatePath], or come
 // from a renderer unchanged.
 func Render(inst *Instance) ([]File, error) {
-	return RenderWith(Renderers(), inst)
+	if inst == nil || inst.Profile == nil {
+		return nil, ErrNoProfile
+	}
+	return RenderWith(RenderersFor(inst.Layout.Provider), inst)
 }
 
 // RenderWith is [Render] over a caller-supplied renderer list.

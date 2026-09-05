@@ -250,3 +250,81 @@ func TestRenderCarriesAnUnknownManifestKeyPastEveryRenderer(t *testing.T) {
 			filePaths(before), filePaths(after))
 	}
 }
+
+func TestCodexRenderProducesNativeInstructionConfigAndSkills(t *testing.T) {
+	inst := contractInstance(t)
+	layout, err := LayoutFor(profile.ProviderCodex)
+	if err != nil {
+		t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
+	}
+	inst.Layout = layout
+	inst.Subagents = nil
+	inst.Profile.Spec[profile.SpecKeyPrompts] = json.RawMessage(`null`)
+	inst.Profile.Spec[profile.SpecKeySettings] = json.RawMessage(`{"codex":{"model":"gpt-5"}}`)
+
+	files, err := Render(inst)
+	if err != nil {
+		t.Fatalf("Render codex: %v", err)
+	}
+	want := []string{
+		"AGENTS.md",
+		"boot.md",
+		"config.toml",
+		".agents/skills/code-review/SKILL.md",
+		".agents/skills/code-review/references/checklist.md",
+		"notes/decisions.md",
+		"tasks/T-1/task.md",
+	}
+	if got := filePaths(files); !slices.Equal(got, want) {
+		t.Fatalf("Render codex produced\n%v\nwant\n%v", got, want)
+	}
+	config := string(fileByPath(t, files, CodexConfigFileName).Content)
+	for _, want := range []string{`model = 'gpt-5'`, `[mcp_servers]`, `[sandbox_workspace_write]`} {
+		if !strings.Contains(config, want) {
+			t.Errorf("config.toml missing %q:\n%s", want, config)
+		}
+	}
+	for _, absent := range []string{"CLAUDE.md", ".mcp.json", "auth.json", ".claude/settings.json", ".claude/agents/scribe.md"} {
+		if slices.Contains(filePaths(files), absent) {
+			t.Errorf("Codex render produced %s", absent)
+		}
+	}
+}
+
+func TestCodexRenderReportsUnsupportedClaudeOnlyFeatures(t *testing.T) {
+	t.Run("prompts", func(t *testing.T) {
+		inst := contractInstance(t)
+		layout, err := LayoutFor(profile.ProviderCodex)
+		if err != nil {
+			t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
+		}
+		inst.Layout = layout
+		inst.Subagents = nil
+		inst.Profile.Spec[profile.SpecKeyPrompts] = json.RawMessage(`["report"]`)
+
+		_, err = Render(inst)
+		if !errors.Is(err, ErrUnsupportedFeature) {
+			t.Fatalf("Render codex with prompts = %v, want ErrUnsupportedFeature", err)
+		}
+		if !strings.Contains(err.Error(), profile.SpecKeyPrompts) {
+			t.Errorf("the error does not name prompts: %v", err)
+		}
+	})
+
+	t.Run("subagents", func(t *testing.T) {
+		inst := contractInstance(t)
+		layout, err := LayoutFor(profile.ProviderCodex)
+		if err != nil {
+			t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
+		}
+		inst.Layout = layout
+
+		_, err = Render(inst)
+		if !errors.Is(err, ErrUnsupportedFeature) {
+			t.Fatalf("Render codex with subagents = %v, want ErrUnsupportedFeature", err)
+		}
+		if !strings.Contains(err.Error(), profile.SpecKeySubagents) {
+			t.Errorf("the error does not name subagents: %v", err)
+		}
+	})
+}

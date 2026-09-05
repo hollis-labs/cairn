@@ -570,3 +570,71 @@ func TestSettingsRefuseADocumentThatNamesNoProvider(t *testing.T) {
 		t.Errorf("the error is %v, and does not name the member it found", err)
 	}
 }
+
+func TestCodexConfigRendersSettingsAccessAndMCP(t *testing.T) {
+	shared := resolved(t, t.TempDir())
+	inst := testInstance(t, profile.Resolved{
+		ID: "reviewer",
+		Spec: testSpec(t, `{
+			"settings": {"codex": {"model": "gpt-5"}},
+			"access": {"directories": [`+strconv.Quote(shared)+`]},
+			"mcp": [{"name":"notes","command":"notes-mcp","args":["serve"],"env":{"TOKEN":"synthetic"}}]
+		}`),
+	})
+	layout, err := LayoutFor(profile.ProviderCodex)
+	if err != nil {
+		t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
+	}
+	inst.Layout = layout
+
+	files, err := RenderSettings(inst)
+	if err != nil {
+		t.Fatalf("RenderSettings codex: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("RenderSettings wrote %v, want one file", filePaths(files))
+	}
+	if files[0].Path != CodexConfigFileName {
+		t.Errorf("path = %q, want config.toml", files[0].Path)
+	}
+	content := string(files[0].Content)
+	for _, want := range []string{
+		`model = 'gpt-5'`,
+		`[sandbox_workspace_write]`,
+		`writable_roots = ['` + shared + `']`,
+		`[mcp_servers.notes]`,
+		`command = 'notes-mcp'`,
+		`[mcp_servers.notes.env]`,
+		`TOKEN = 'synthetic'`,
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("config.toml missing %q:\n%s", want, content)
+		}
+	}
+}
+
+func TestCodexConfigRefusesGeneratedKeyCollisions(t *testing.T) {
+	for _, document := range []string{
+		`{"sandbox_workspace_write": {"writable_roots": ["/operator"]}}`,
+		`{"mcp_servers": {"notes": {"command": "operator-notes"}}}`,
+	} {
+		inst := testInstance(t, profile.Resolved{
+			ID: "reviewer",
+			Spec: testSpec(t, `{
+				"settings": {"codex": `+document+`},
+				"access": {"directories": [`+strconv.Quote(resolved(t, t.TempDir()))+`]},
+				"mcp": [{"name":"notes","command":"notes-mcp"}]
+			}`),
+		})
+		layout, err := LayoutFor(profile.ProviderCodex)
+		if err != nil {
+			t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
+		}
+		inst.Layout = layout
+
+		_, err = RenderSettings(inst)
+		if !errors.Is(err, ErrConfigConflict) {
+			t.Errorf("RenderSettings codex with %s = %v, want ErrConfigConflict", document, err)
+		}
+	}
+}

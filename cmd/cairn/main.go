@@ -108,10 +108,9 @@ flags for boot, install and show:
                          provider is a materialization target rather than a property of
                          the content — access, slots, templates and skills are neutral
                          and serve every target — which is why one profile can be asked
-                         for another harness at all. claude is the only layout
-                         implemented: codex and opencode are refused by name rather than
-                         rendered as claude, which would write claude's files at claude's
-                         paths for a harness that reads neither
+                         for another harness at all. claude and codex layouts are
+                         implemented; opencode is refused by name rather than rendered
+                         as another harness's files
 
 flags for all four:
   --profile <dir>        the profile bundle — the directory the catalog is read from,
