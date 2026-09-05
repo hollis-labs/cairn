@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -147,6 +148,9 @@ func TestProviderCodexBootRendersNativeArtifacts(t *testing.T) {
 	}
 	if report.CwdPreference != "boot_dir" {
 		t.Errorf("cwd_preference = %q, want boot_dir", report.CwdPreference)
+	}
+	if !slices.Equal(report.ProjectDirArg, []string{"--add-dir", "{{.ProjectDir}}"}) {
+		t.Errorf("project_dir_arg = %v, want --add-dir and the project placeholder", report.ProjectDirArg)
 	}
 	if !strings.Contains(strings.Join(report.ProjectDirArg, " "), "{{.ProjectDir}}") {
 		t.Errorf("project_dir_arg = %v, want a project placeholder", report.ProjectDirArg)

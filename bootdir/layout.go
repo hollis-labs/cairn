@@ -230,7 +230,7 @@ func codexLayout() (Layout, error) {
 		Settings:      declared[CodexConfigFileName],
 		SkillsDir:     CodexSkillsDirName,
 		CwdPreference: spec.CwdPreference,
-		ProjectDirArg: spec.ProjectDirArg,
+		ProjectDirArg: "--add-dir {{.ProjectDir}}",
 		EnvAmendments: append([]string(nil), spec.EnvAmendments...),
 	}, nil
 }
