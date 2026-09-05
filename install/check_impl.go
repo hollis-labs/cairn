@@ -115,6 +115,15 @@ func NewSweepPlan(lay *Layer) (SweepPlan, error) {
 		// disagree, and the sweep would claim the wrong paths.
 		p := path.Join(h.dir, r.Artifact)
 		if r.Fills == nil {
+			if r.Claim != nil {
+				claimed, err := r.Claim(lay.Profile)
+				if err != nil {
+					return SweepPlan{}, fmt.Errorf("plan the %s artifact: %w", r.Artifact, err)
+				}
+				if !claimed {
+					continue
+				}
+			}
 			plan.Claims = append(plan.Claims, p)
 			continue
 		}

@@ -550,6 +550,10 @@ func TestRenderCodexInstalledLayerUsesCodexAndAgentsRoots(t *testing.T) {
 	if got := renderedPaths(files); !slices.Equal(got, want) {
 		t.Errorf("Render produced\n\t%v\nwant\n\t%v", got, want)
 	}
+	agents := string(renderedFile(t, files, ".codex/AGENTS.md").Content)
+	if want := GeneratedMarker("base") + "\n\n"; !strings.HasPrefix(agents, want) {
+		t.Errorf("Codex AGENTS.md does not start with the generated marker %q:\n%s", want, agents)
+	}
 	config := string(renderedFile(t, files, ".codex/config.toml").Content)
 	for _, want := range []string{`model = 'gpt-5'`, `[sandbox_workspace_write]`, `writable_roots = ['` + shared + `']`} {
 		if !strings.Contains(config, want) {

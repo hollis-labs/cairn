@@ -252,6 +252,12 @@ type Renderer struct {
 	// the default for every artifact cairn owns whole.
 	Merge func(rendered, existing []byte) []byte
 
+	// Claim, when set, decides whether a file artifact is claimed for this
+	// resolved profile before it is rendered. It is only for optional files
+	// whose renderer legitimately produces nothing when no matching manifest
+	// input exists.
+	Claim func(*profile.Resolved) (bool, error)
+
 	// Normalize, when set, is applied to the render and to the bytes on disk
 	// before a check compares them, so that a difference it forgives is a
 	// difference in neither.
@@ -345,10 +351,32 @@ func CodexRenderers() []Renderer {
 			Artifact:  CodexDirName + "/" + bootdir.CodexConfigFileName,
 			Render:    bootdir.RenderSettings,
 			Merge:     mergeTOMLDocument,
+			Claim:     codexConfigClaimed,
 			Normalize: normalizeTOMLDocument,
 		},
 		{Artifact: bootdir.CodexSkillsDirName, Render: bootdir.RenderInstallSkills, Fills: installedSkillNames},
 	}
+}
+
+func codexConfigClaimed(resolved *profile.Resolved) (bool, error) {
+	if resolved == nil {
+		return false, ErrNoProfile
+	}
+	if _, declared, err := resolved.Spec.Settings(profile.ProviderCodex); declared || err != nil {
+		return declared, err
+	}
+	dirs, err := resolved.Spec.AccessDirectories()
+	if err != nil {
+		return false, err
+	}
+	if len(dirs) > 0 {
+		return true, nil
+	}
+	mcp, err := resolved.Spec.MCP()
+	if err != nil {
+		return false, err
+	}
+	return len(mcp) > 0, nil
 }
 
 // installedSkillNames returns the skill directories the installed layer claims

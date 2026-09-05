@@ -446,6 +446,45 @@ approval_mode = "auto"
 	}
 }
 
+func TestCheckLeavesExistingCodexConfigUnclaimedWhenTheProfileRendersNone(t *testing.T) {
+	t.Parallel()
+	rootDir := t.TempDir()
+	root, err := install.NewRoot(rootDir)
+	if err != nil {
+		t.Fatalf("NewRoot: %v", err)
+	}
+	lay := &install.Layer{
+		Root: root,
+		Profile: &profile.Resolved{
+			ID:       "base",
+			Provider: profile.ProviderCodex,
+			Spec: checkSpec(t, map[string]any{
+				"templates": map[string]any{"AGENTS.md": "codex base"},
+			}),
+		},
+		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+	}
+
+	if _, err := install.Install(lay); err != nil {
+		t.Fatalf("Install codex layer: %v", err)
+	}
+	writeInRoot(t, rootDir, ".codex/config.toml", `model = "user-owned"
+`)
+
+	report, err := install.Check(lay)
+	if err != nil {
+		t.Fatalf("Check codex layer: %v", err)
+	}
+	if !report.Clean() {
+		t.Errorf("Check should not treat an undeclared Codex config as drift:\n%s", report)
+	}
+	for _, entry := range report.Entries {
+		if entry.Path == ".codex/config.toml" {
+			t.Errorf("Codex config was reported as %s; want it unreported when the profile renders none", entry.Status)
+		}
+	}
+}
+
 func TestCheckReportsADeletedFileAsMissing(t *testing.T) {
 	t.Parallel()
 	fixture := newCheckFixture(t, "alpha")

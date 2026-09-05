@@ -3,6 +3,7 @@ package install
 import (
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/chrispian/cairn/bootdir"
@@ -185,7 +186,7 @@ func bootRenderers(renderers []Renderer, profileID string) []bootdir.Renderer {
 	out := make([]bootdir.Renderer, 0, len(renderers))
 	for _, r := range renderers {
 		render := r.Render
-		if r.Artifact == bootdir.AgentsFileName {
+		if path.Base(r.Artifact) == bootdir.AgentsFileName {
 			render = markGenerated(render, profileID)
 		}
 		out = append(out, bootdir.Renderer{Artifact: r.Artifact, Render: render})
