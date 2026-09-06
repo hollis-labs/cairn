@@ -183,7 +183,7 @@ ln -s "$HOME/.codex/hooks.json" "$boot/hooks.json"
 ln -s "$HOME/.codex/hooks" "$boot/hooks"
 
 cd "$boot"
-CODEX_HOME="$boot" codex --skip-git-repo-check --add-dir "$scope"
+CODEX_HOME="$boot" codex --add-dir "$scope"
 ```
 
 Those three links are an explicit operator preparation step, matching the
@@ -191,9 +191,11 @@ Those three links are an explicit operator preparation step, matching the
 operator's live Codex credential and hook registration to that one boot-local
 home without copying their contents and without making Cairn claim or sweep
 them. If Codex asks to trust a hook on first launch, inspect the linked
-`hooks.json` and `hooks/` target before accepting. `--skip-git-repo-check` is
-needed because the disposable boot directory is intentionally not the real
-project checkout; scope access is granted separately by `--add-dir`. Do not make
+`hooks.json` and `hooks/` target before accepting. The interactive CLI does not
+accept `--skip-git-repo-check`; that flag belongs to `codex exec`, where it is
+needed for a non-git disposable boot directory. For a non-interactive probe use
+`CODEX_HOME="$boot" codex exec --skip-git-repo-check --add-dir "$scope" "<prompt>"`.
+Scope access is granted separately by `--add-dir`. Do not make
 `--dangerously-bypass-hook-trust` the default manual recipe; it is only for
 automation that vets hook sources outside Codex's trust prompt.
 
