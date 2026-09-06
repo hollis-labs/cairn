@@ -12,10 +12,10 @@
 //
 // # cairn install is human-executed
 //
-// Every agent working on Cairn runs under the very directory this package
-// writes. An agent that runs the install rewrites its own live configuration
-// mid-session. Nothing in this package is safe to invoke to "check that it
-// works"; [Check] against a fixture root is.
+// An agent running under the provider home this package writes rewrites its own
+// live configuration mid-session. Nothing in this package is safe to invoke
+// against a live home to "check that it works"; [Check] against a fixture root
+// is.
 package install
 
 import (
@@ -243,14 +243,12 @@ type Renderer struct {
 	// "would an install change this file?" — and a key cairn never declared is
 	// then neither written nor reported, which is the whole rule.
 	//
-	// It runs before Normalize and is total: a document it cannot read is not
-	// merged at all, and the render stands. There is no error to return
-	// because there is no failure to report — an unreadable settings document
-	// is a finding the check already makes.
+	// It runs before Normalize. A merge that cannot safely preserve the existing
+	// document returns an error so Install can refuse before overwriting it.
 	//
 	// A renderer without one is written and compared as the render, which is
 	// the default for every artifact cairn owns whole.
-	Merge func(rendered, existing []byte) []byte
+	Merge func(rendered, existing []byte) ([]byte, error)
 
 	// Claim, when set, decides whether a file artifact is claimed for this
 	// resolved profile before it is rendered. It is only for optional files
@@ -333,7 +331,7 @@ func ClaudeRenderers() []Renderer {
 		{
 			Artifact:  SettingsFileName,
 			Render:    bootdir.RenderSettings,
-			Merge:     mergeSettingsDocument,
+			Merge:     mergeSettingsArtifact,
 			Normalize: bootdir.IndentJSON,
 		},
 		{Artifact: SkillsDirName, Render: bootdir.RenderInstallSkills, Fills: installedSkillNames},

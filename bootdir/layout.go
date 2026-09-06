@@ -160,6 +160,11 @@ type Layout struct {
 	CwdPreference goprovider.CwdPreference
 	ProjectDirArg string
 	EnvAmendments []string
+
+	// HomeResourcePaths are provider-home-relative resources Cairn does not
+	// render, but a launcher must deliberately provide when EnvAmendments points
+	// the harness at the boot directory as its home.
+	HomeResourcePaths []string
 }
 
 // LayoutFor returns the [Layout] one provider's boot directory is rendered
@@ -232,6 +237,11 @@ func codexLayout() (Layout, error) {
 		CwdPreference: spec.CwdPreference,
 		ProjectDirArg: "--add-dir {{.ProjectDir}}",
 		EnvAmendments: append([]string(nil), spec.EnvAmendments...),
+		HomeResourcePaths: []string{
+			"auth.json",
+			"hooks.json",
+			"hooks",
+		},
 	}, nil
 }
 

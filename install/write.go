@@ -149,7 +149,11 @@ func mergeWithDisk(root Root, files []File, how map[string]comparison) ([]File, 
 		if err != nil {
 			return nil, fmt.Errorf("install: read %s to merge into it: %w", f.Path, err)
 		}
-		out[i].Content = merge(f.Content, existing)
+		merged, err := merge(f.Content, existing)
+		if err != nil {
+			return nil, fmt.Errorf("install: merge %s with the existing file: %w", f.Path, err)
+		}
+		out[i].Content = merged
 	}
 	return out, nil
 }

@@ -80,6 +80,10 @@ func mergeSettingsDocument(rendered, existing []byte) []byte {
 	return bootdir.IndentJSON(merged)
 }
 
+func mergeSettingsArtifact(rendered, existing []byte) ([]byte, error) {
+	return mergeSettingsDocument(rendered, existing), nil
+}
+
 // jsonMember is one member of a JSON object as it was written: the quoted key
 // and the value, both raw.
 //

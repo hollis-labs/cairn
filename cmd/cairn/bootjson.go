@@ -175,6 +175,19 @@ type bootReport struct {
 	// declares none.
 	EnvAmendments []string `json:"env_amendments"`
 
+	// HomeResourcePaths are provider-home-relative resources Cairn does not
+	// render into the boot directory, but a launcher that follows
+	// EnvAmendments and points the provider home at the boot directory must
+	// deliberately provide before launch. Null means Cairn knows of no such
+	// resource for the selected provider.
+	//
+	// Codex reports auth.json, hooks.json and hooks. They are not rendered
+	// because copying credentials or hook registrations into disposable boot
+	// directories would make Cairn the owner of live operator state. Reporting
+	// them gives a manual operator or launcher a checklist without changing
+	// that ownership boundary.
+	HomeResourcePaths []string `json:"home_resource_paths"`
+
 	// SavedBindingPath is the file --save-as wrote, absolute, or null when no
 	// --save-as was given.
 	//
@@ -273,16 +286,17 @@ func newBootReport(dir string, layout bootdir.Layout, scopeDir, profileRoot stri
 		droppedSets = nonEmpty(save.dropped)
 	}
 	return bootReport{
-		BootDir:          dir,
-		Provider:         layout.Provider.String(),
-		ProfileRoot:      profileRoot,
-		Scope:            nullable(scopeDir),
-		SettingsPath:     nullable(renderedPath(dir, layout.Settings, files)),
-		CwdPreference:    cwd,
-		ProjectDirArg:    argvTokens(layout.ProjectDirArg),
-		EnvAmendments:    nonEmpty(layout.EnvAmendments),
-		SavedBindingPath: savedPath,
-		SavedDroppedSets: droppedSets,
+		BootDir:           dir,
+		Provider:          layout.Provider.String(),
+		ProfileRoot:       profileRoot,
+		Scope:             nullable(scopeDir),
+		SettingsPath:      nullable(renderedPath(dir, layout.Settings, files)),
+		CwdPreference:     cwd,
+		ProjectDirArg:     argvTokens(layout.ProjectDirArg),
+		EnvAmendments:     nonEmpty(layout.EnvAmendments),
+		HomeResourcePaths: nonEmpty(layout.HomeResourcePaths),
+		SavedBindingPath:  savedPath,
+		SavedDroppedSets:  droppedSets,
 	}, nil
 }
 

@@ -158,12 +158,42 @@ harness's layout. A word that is no harness at all is a different refusal, and
 says so.
 
 Codex boots render `AGENTS.md` and `config.toml`, and `cairn boot --json`
-reports the adapter's cwd, project-dir argument and environment amendments.
+reports the adapter's cwd, project-dir argument, environment amendments and
+operator-owned provider-home resources.
 Cairn does not plant `auth.json` into disposable boot directories: a launcher
 that chooses to set `CODEX_HOME={{.BootDir}}` must have an explicit credential
 strategy, and a launcher that preserves the user's existing Codex credentials
 should rely on the installed layer or its own config/profile routing. Codex user
 skills are installed under `~/.agents/skills`, not under `~/.codex`.
+
+The ordinary manual Codex path keeps the boot directory as the loaded project
+so Codex sees its `AGENTS.md`, `config.toml` and `.agents/skills`, while the
+real scope is granted with the provider's project-dir argument:
+
+```bash
+report="$(cairn boot codex-coord-cairn \
+  --profile /Users/chrispian/dev/projects/agent-setup \
+  --provider codex \
+  --json)"
+boot="$(printf '%s\n' "$report" | jq -r '.boot_dir')"
+scope="$(printf '%s\n' "$report" | jq -r '.scope')"
+
+ln -s "$HOME/.codex/auth.json" "$boot/auth.json"
+ln -s "$HOME/.codex/hooks.json" "$boot/hooks.json"
+ln -s "$HOME/.codex/hooks" "$boot/hooks"
+
+cd "$boot"
+CODEX_HOME="$boot" codex --add-dir "$scope"
+```
+
+Those three links are an explicit operator preparation step, matching the
+`home_resource_paths` in the boot report. They expose the
+operator's live Codex credential and hook registration to that one boot-local
+home without copying their contents and without making Cairn claim or sweep
+them. If Codex asks to trust a hook on first launch, inspect the linked
+`hooks.json` and `hooks/` target before accepting. Do not make
+`--dangerously-bypass-hook-trust` the default manual recipe; it is only for
+automation that vets hook sources outside Codex's trust prompt.
 
 It is deliberately **not** one of the four flags below. Those add content to one
 launch, which is why `install` takes none of them; this says where the content
@@ -811,6 +841,7 @@ moved. With it, stdout is one JSON object and nothing else, so
   "settings_path": "/Users/.../boot/eng/20260826T014133Z-9f2a1c/.claude/settings.json",
   "cwd_preference": "boot_dir",
   "project_dir_arg": ["--add-dir", "{{.ProjectDir}}"],
+  "home_resource_paths": null,
   "saved_binding_path": null,
   "saved_dropped_sets": null
 }
@@ -830,8 +861,8 @@ consumer handle two shapes for one meaning.
 **A value Cairn does not have is `null`, never `""` and never `[]`.** An empty
 string is the shape most likely to be interpolated straight into argv: `claude
 $FLAG "$VALUE"` passes an empty argument and the launch is wrong with nothing
-reporting it, where `null` forces the consumer to decide. Five keys can be
-null and each says something different:
+reporting it, where `null` forces the consumer to decide. Keys whose values can
+be null each say something different:
 
 - `scope` — the binding declared none and no `--scope` was given.
 - `settings_path` — the render produced no file at the harness's settings path.
@@ -840,6 +871,10 @@ null and each says something different:
   produced, so it never names a file that is not there.
 - `project_dir_arg` — this harness needs no flag to grant a directory. It is
   **not** how "there is no scope" is spelled; `scope` says that.
+- `env_amendments` — this harness declares no launch environment amendments.
+- `home_resource_paths` — Cairn knows of no provider-home resources the launcher
+  must deliberately provide when the provider home is pointed at the boot
+  directory.
 - `saved_binding_path` — no `--save-as` was given.
 - `saved_dropped_sets` — no `--set` was dropped from a save, which is one
   meaning covering both "no `--save-as`" and "a save that dropped nothing".

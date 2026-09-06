@@ -446,6 +446,71 @@ approval_mode = "auto"
 	}
 }
 
+func TestCodexInstallRefusesMalformedExistingConfig(t *testing.T) {
+	t.Parallel()
+	rootDir := t.TempDir()
+	root, err := install.NewRoot(rootDir)
+	if err != nil {
+		t.Fatalf("NewRoot: %v", err)
+	}
+	lay := &install.Layer{
+		Root: root,
+		Profile: &profile.Resolved{
+			ID:       "base",
+			Provider: profile.ProviderCodex,
+			Spec: checkSpec(t, map[string]any{
+				"settings": map[string]any{"codex": map[string]any{"model": "gpt-5"}},
+			}),
+		},
+		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+	}
+
+	configPath := writeInRoot(t, rootDir, ".codex/config.toml", `model = "user-owned"
+broken = [
+`)
+
+	_, err = install.Install(lay)
+	if !errors.Is(err, install.ErrInvalidExistingTOML) {
+		t.Fatalf("Install with malformed existing Codex config = %v, want ErrInvalidExistingTOML", err)
+	}
+	if got := readFile(t, configPath); got != "model = \"user-owned\"\nbroken = [\n" {
+		t.Fatalf("Install rewrote the malformed existing config:\n%s", got)
+	}
+}
+
+func TestCheckReportsMalformedExistingCodexConfig(t *testing.T) {
+	t.Parallel()
+	rootDir := t.TempDir()
+	root, err := install.NewRoot(rootDir)
+	if err != nil {
+		t.Fatalf("NewRoot: %v", err)
+	}
+	lay := &install.Layer{
+		Root: root,
+		Profile: &profile.Resolved{
+			ID:       "base",
+			Provider: profile.ProviderCodex,
+			Spec: checkSpec(t, map[string]any{
+				"settings": map[string]any{"codex": map[string]any{"model": "gpt-5"}},
+			}),
+		},
+		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+	}
+	writeInRoot(t, rootDir, ".codex/config.toml", "model = [\n")
+
+	report, err := install.Check(lay)
+	if err != nil {
+		t.Fatalf("Check codex layer: %v", err)
+	}
+	entry := entryAt(t, report, ".codex/config.toml")
+	if entry.Status != install.StatusModified {
+		t.Fatalf("config status = %s, want modified\n%s", entry.Status, report)
+	}
+	if !strings.Contains(entry.Detail, install.ErrInvalidExistingTOML.Error()) {
+		t.Errorf("config detail = %q, want malformed TOML detail", entry.Detail)
+	}
+}
+
 func TestCheckLeavesExistingCodexConfigUnclaimedWhenTheProfileRendersNone(t *testing.T) {
 	t.Parallel()
 	rootDir := t.TempDir()

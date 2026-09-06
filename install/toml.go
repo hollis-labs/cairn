@@ -1,23 +1,30 @@
 package install
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
-func mergeTOMLDocument(rendered, existing []byte) []byte {
+// ErrInvalidExistingTOML reports an existing user configuration file that
+// cannot be merged without guessing which bytes to preserve.
+var ErrInvalidExistingTOML = errors.New("existing TOML document is not parseable")
+
+func mergeTOMLDocument(rendered, existing []byte) ([]byte, error) {
 	var want, found map[string]any
 	if err := toml.Unmarshal(rendered, &want); err != nil {
-		return rendered
+		return nil, fmt.Errorf("rendered TOML document is not parseable: %w", err)
 	}
 	if err := toml.Unmarshal(existing, &found); err != nil {
-		return rendered
+		return nil, fmt.Errorf("%w: %w", ErrInvalidExistingTOML, err)
 	}
 	merged := mergeTOMLMaps(want, found)
 	out, err := toml.Marshal(merged)
 	if err != nil {
-		return rendered
+		return rendered, nil
 	}
-	return out
+	return out, nil
 }
 
 func normalizeTOMLDocument(raw []byte) []byte {

@@ -121,8 +121,9 @@ flags for all four:
                          $CAIRN_PROFILE_ROOT/templates/agents.md and the bundle relocates
                          without edits
 
-cairn install is human-executed. Every agent working under ~/.claude that runs
-it rewrites its own live configuration mid-session.
+cairn install is human-executed. Every agent working under a provider home such
+as ~/.claude or ~/.codex that runs it rewrites its own live configuration
+mid-session.
 
 cairn show and cairn install --check render nothing and write nothing — no boot
 directory, no installed layer, and no part of the bundle they read. A read that
@@ -181,11 +182,11 @@ func (c exitCode) Error() string { return fmt.Sprintf("exit status %d", int(c)) 
 
 // runInstall renders the installed layer, or checks it against disk.
 //
-// cairn install is human-executed, permanently. Every agent working on Cairn
-// runs under the directory this writes; an agent that runs it rewrites its own
-// live configuration mid-session. Nothing here enforces that — plan §1 rules
-// out validation whose only job is to stop the operator doing what the
-// operator meant — so the convention is documented and not policed.
+// cairn install is human-executed, permanently. An agent running under the
+// provider home this writes rewrites its own live configuration mid-session.
+// Nothing here enforces that — plan §1 rules out validation whose only job is
+// to stop the operator doing what the operator meant — so the convention is
+// documented and not policed.
 func runInstall(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("cairn install", flag.ContinueOnError)
 	fs.SetOutput(stderr)

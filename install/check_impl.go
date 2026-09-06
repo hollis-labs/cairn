@@ -265,7 +265,7 @@ func manifestPaths(rendered []File) map[string]struct{} {
 type comparison struct {
 	// merge is the artifact's [Renderer.Merge]: the bytes an install would
 	// write, given the render and what is already there.
-	merge func(rendered, existing []byte) []byte
+	merge func(rendered, existing []byte) ([]byte, error)
 
 	// normalize is the artifact's [Renderer.Normalize].
 	normalize func([]byte) []byte
@@ -357,7 +357,13 @@ func checkRendered(fsys fs.ReadLinkFS, f File, how comparison) Entry {
 	}
 	write := f.Content
 	if how.merge != nil {
-		write = how.merge(f.Content, content)
+		var err error
+		write, err = how.merge(f.Content, content)
+		if err != nil {
+			entry.Status = StatusModified
+			entry.Detail = fmt.Sprintf("the bytes on disk cannot be merged with the render: %v", err)
+			return entry
+		}
 	}
 	found, want := content, write
 	if how.normalize != nil {

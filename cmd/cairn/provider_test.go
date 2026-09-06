@@ -158,6 +158,9 @@ func TestProviderCodexBootRendersNativeArtifacts(t *testing.T) {
 	if len(report.EnvAmendments) == 0 || !strings.Contains(report.EnvAmendments[0], "{{.BootDir}}") {
 		t.Errorf("env_amendments = %v, want provider boot-dir placeholder", report.EnvAmendments)
 	}
+	if !slices.Equal(report.HomeResourcePaths, []string{"auth.json", "hooks.json", "hooks"}) {
+		t.Errorf("home_resource_paths = %v, want Codex auth and hook resources", report.HomeResourcePaths)
+	}
 	if report.SettingsPath == nil || !strings.HasSuffix(*report.SettingsPath, "config.toml") {
 		t.Fatalf("settings_path = %v, want config.toml", report.SettingsPath)
 	}
