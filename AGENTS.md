@@ -22,10 +22,14 @@ Use the smallest command that exercises the changed boundary:
 ```bash
 go test ./profile ./catalog ./bootdir ./install ./cmd/cairn
 go test ./...
+make check
+testdata/goldens/verify.sh
 ```
 
 Run broader checks when provider layout, install ownership, persistence or the
-public CLI contract changes.
+public CLI contract changes. `make check` is the landing gate, and is what CI
+runs. Anything that can change what a profile renders also needs `verify.sh`,
+which no Go test reaches.
 
 ## Boundaries
 
@@ -35,3 +39,10 @@ or implemented through the existing layout/renderer/install seams.
 
 Never test install behavior against a live home. Use fixture roots and preserve
 unrelated config, auth, plugin and skill state.
+
+`testdata/goldens/trees/` holds rendered `.claude/` trees. They are Cairn's
+expected output, not this repo's own agent configuration — a sweep that clears
+project-level harness directories and reaches them deletes the render gate.
+`verify.sh` re-renders against a live `~/dev/projects/agent-setup` checkout, so
+it is machine-local, is not a CI check, and says whether a diff is upstream's or
+yours. Re-baseline only with `capture.sh --force`, reading the diff first.

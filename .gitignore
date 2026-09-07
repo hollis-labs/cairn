@@ -26,8 +26,9 @@ Thumbs.db
 .env
 .env.*
 
-# Agent worktrees, materialized inside the repo by the harness
+# Claude client runtime state, written into the repo by the harness
 /.claude/worktrees/
+/.claude/settings.local.json
 
 # Bare `go build ./...` output for cmd/cairn
 /cairn
