@@ -18,10 +18,26 @@
 #     ~/.agents/skills and repository skills under .agents/skills, which is why
 #     the installed layer's `dir` is the root rather than a provider directory.
 #
-# `prompts` and `subagents` stay in `renders` with no directory declared. That
-# is the refusal: a profile that declares either gets a diagnostic naming what
-# it declared and which layout has nowhere to put it, rather than a boot
-# directory silently missing them.
+# `prompts` and `subagents` stay in `renders` with no directory declared. A
+# profile that declares either has it DROPPED, with a line naming what it
+# declared, which layout had nowhere for it, and that the boot directory is
+# otherwise complete.
+#
+# It used to be a refusal, and the argument was the one above: a boot directory
+# silently missing them looks exactly like one whose profile never asked. That
+# argument is about SILENCE, and the report removes the silence — so it never
+# needed the strong form. Two things settled it. Cairn already warn-and-drops
+# the more severe case, since a slot that fails costs an agent context while a
+# missing prompt costs a person a command they can see is absent. And the only
+# way to satisfy the refusal was a per-provider `prompts: null` in the catalog,
+# which is provider knowledge in the component that owns none of it: when
+# agent-setup removed the part carrying those nulls, one inherited `prompts:`
+# in base made all fifteen profiles unbootable here while all fifteen booted
+# under claude.
+#
+# See bootdir.Undeclared, and Tesseract
+# `refusals_belong_where_they_can_be_cleared` — a lens for thinking with, not a
+# test to run against a case it was not derived from.
 
 provider: codex
 

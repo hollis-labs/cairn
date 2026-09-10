@@ -69,7 +69,8 @@ type Subagent struct {
 // [Instance].Subagents. Looking one up means reading another profile out of
 // the catalog and walking its extends chain, and a renderer does no I/O.
 //
-// A profile naming no subagents renders nothing and reports no error. The
+// A profile naming no subagents renders nothing and reports no error, and so
+// does one whose definitions this tree has nowhere to plant. The
 // output is deterministic: definitions in the order the resolved spec.subagents
 // carries them — the order the manifest names them where one profile declares
 // the key, key order where the cascade composed it — and within each,
@@ -81,11 +82,13 @@ func renderSubagents(inst *Instance) ([]File, error) {
 	if len(inst.Subagents) == 0 {
 		return nil, nil
 	}
+	// Dropped rather than refused, for the reason a prompt is — see
+	// [Undeclared]. The two are one decision: they are the same refusal over
+	// two collections, and changing one would have moved the wall rather than
+	// removed it.
 	dir := strings.TrimSpace(inst.Layout.SubagentsDir)
 	if dir == "" {
-		return nil, fmt.Errorf(
-			"%w: spec.%s names %s, and the %s layout declares no subagents directory",
-			ErrProviderLayout, profile.SpecKeySubagents, quotedNames(subagentIDs(inst.Subagents)), inst.Layout.Provider)
+		return nil, nil
 	}
 
 	seen := make(map[string]struct{}, len(inst.Subagents))

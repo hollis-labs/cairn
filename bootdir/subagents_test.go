@@ -363,19 +363,31 @@ func TestSubagentsRefuseAnIDNamedTwice(t *testing.T) {
 	}
 }
 
-// TestSubagentsRefuseALayoutWithNoDefinitionsDirectory is the [ErrProviderLayout]
-// rule for this artifact: content the profile declared, and nowhere the
-// harness reads it from, is reported rather than dropped.
-func TestSubagentsRefuseALayoutWithNoDefinitionsDirectory(t *testing.T) {
+// TestSubagentsAreDroppedAndReportedWithNoDefinitionsDirectory is the
+// warn-and-drop rule for this artifact: content the profile declared, and
+// nowhere the harness reads it from, is dropped and named rather than refused.
+//
+// Both collections, one decision. Prompts and subagents were the same refusal
+// over two keys, so changing one would have moved the wall rather than removed
+// it — see [Undeclared].
+func TestSubagentsAreDroppedAndReportedWithNoDefinitionsDirectory(t *testing.T) {
 	inst := subagentInstance(t, `{"description": "d"}`)
 	inst.Layout.SubagentsDir = ""
 
-	_, err := renderSubagents(inst)
-	if !errors.Is(err, ErrProviderLayout) {
-		t.Fatalf("renderSubagents() = %v, want ErrProviderLayout", err)
+	files, err := renderSubagents(inst)
+	if err != nil {
+		t.Fatalf("renderSubagents() = %v, want the definitions dropped and no error", err)
 	}
-	if !strings.Contains(err.Error(), "reviewer") {
-		t.Errorf("the refusal %q does not name what was declared", err)
+	if len(files) != 0 {
+		t.Errorf("renderSubagents() planted %d file(s) with nowhere to put them", len(files))
+	}
+
+	report := Undeclared(inst)
+	if len(report) != 1 {
+		t.Fatalf("Undeclared() = %v, want one line", report)
+	}
+	if !strings.Contains(report[0], "reviewer") {
+		t.Errorf("the report %q does not name what was declared", report[0])
 	}
 }
 

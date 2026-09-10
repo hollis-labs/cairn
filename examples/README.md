@@ -149,6 +149,29 @@ cairn boot eng --provider claude   # what `cairn boot eng` already did
 cairn boot eng --provider codex    # render Codex-native AGENTS.md/config.toml
 ```
 
+**A tree with nowhere for something drops it and says so.** Codex reads no
+prompt-command directory and no subagent definitions, so a profile declaring
+either boots into that tree carrying neither, with a line naming what was
+declared, which layout had nowhere for it, and that the directory is otherwise
+complete:
+
+```
+cairn: the codex layout has nowhere to plant spec.prompts, which declares
+"report", so this boot directory carries none. Everything else it declared
+rendered, and the boot directory is complete.
+```
+
+That is a report and not a refusal, and the difference matters at your scale:
+one `prompts:` in a base profile reaches every profile that extends it, and a
+refusal made all of them unbootable under Codex. Clearing it would have needed
+a per-provider `prompts: null` in the catalog — which is provider knowledge in
+the place that holds content. Cairn already treats the sharper case this way: a
+slot that fails renders nothing and warns. What is never acceptable is
+dropping in silence.
+
+**A profile therefore needs no per-provider nulls.** One profile serves every
+harness, and each tree takes what it has somewhere to put.
+
 Claude Code and Codex layouts are implemented. `opencode` is a name cairn knows
 and cannot yet write, and it is refused rather than rendered as another
 harness's layout. A word that is no harness at all is a different refusal, and

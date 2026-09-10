@@ -290,3 +290,66 @@ func TestBootTheExampleBundleComposesAFragmentIntoTheLayout(t *testing.T) {
 		t.Errorf("the part took over the document's shape:\n%s", agents)
 	}
 }
+
+// TestBootDropsContentTheTreeCannotPlantAndSaysSo is the warn-and-drop at the
+// command, over the tree that actually has nowhere for either collection.
+//
+// The refusal it replaces made every Codex boot of every agent-setup profile
+// fail, because one inherited `prompts:` in base reached all of them, and the
+// only way to clear it was a per-provider null in the catalog — provider
+// knowledge, in the component that owns none of it. See bootdir.Undeclared.
+func TestBootDropsContentTheTreeCannotPlantAndSaysSo(t *testing.T) {
+	ctx := context.Background()
+	home := t.TempDir()
+	bundle := filepath.Join(home, "bundle")
+	scopeDir := filepath.Join(home, "scope")
+	mustMkdir(t, scopeDir)
+
+	prompts := filepath.Join(home, "prompts")
+	mustMkdir(t, prompts)
+	writeFile(t, filepath.Join(prompts, "report.md"), "# report\n", 0o644)
+
+	writeProfile(t, bundle, bundleProfile{
+		ID: "helper", Name: "Helper", Provider: "claude",
+		Spec: map[string]string{"subagent": `{"description": "reviews a diff"}`},
+	})
+	writeProfile(t, bundle, bundleProfile{
+		ID: "worker", Name: "Worker", Provider: "claude",
+		Spec: map[string]string{
+			"prompts":     `["report"]`,
+			"prompts_dir": `"` + prompts + `"`,
+			"subagents":   `["helper"]`,
+			"templates":   `{"AGENTS.md": "# worker\n"}`,
+		},
+	})
+
+	var stdout, stderr bytes.Buffer
+	if err := run(ctx, []string{
+		"boot", "worker", "--profile", bundle, "--provider", "codex", "--scope", scopeDir,
+		"--boot-root", filepath.Join(home, "runtime"), "--session", "s1",
+	}, &stdout, &stderr); err != nil {
+		t.Fatalf("boot into the codex tree: %v\nstderr: %s", err, stderr.String())
+	}
+
+	// The boot happened, and the rest of it is there. That is the change: the
+	// refusal planted nothing at all.
+	dir := strings.TrimSpace(stdout.String())
+	if got := read(t, dir, "AGENTS.md"); !strings.Contains(got, "# worker") {
+		t.Errorf("the instruction document is missing:\n%s", got)
+	}
+
+	report := stderr.String()
+	// Both collections, because a profile that declares both should hear about
+	// both rather than about whichever is checked first.
+	for _, want := range []string{"prompts", "report", "subagents", "helper", "codex"} {
+		if !strings.Contains(report, want) {
+			t.Errorf("stderr does not name %q:\n%s", want, report)
+		}
+	}
+	// And it says the boot is fine, which a refusal never had to. Without this
+	// the line reads like a failure that did not fail, and the operator goes
+	// looking for a directory that is sitting there complete.
+	if !strings.Contains(report, "the boot directory is complete") {
+		t.Errorf("stderr does not say the boot is otherwise complete:\n%s", report)
+	}
+}

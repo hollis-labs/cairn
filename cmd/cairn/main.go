@@ -693,6 +693,19 @@ func runBoot(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		append(bootTemplates(templates), bootPrompts(inst)...), sections); err != nil {
 		return fmt.Errorf("profile %q: %w", resolved.ID, err)
 	}
+	// Content this tree has nowhere to plant. It is dropped rather than
+	// refused — see bootdir.Undeclared — so the line is the only thing
+	// standing between the operator and a boot directory that looks like the
+	// boot directory of a profile that never declared it.
+	//
+	// It says the rest of the boot is fine, which a refusal never had to. A
+	// line that only named what was missing would read like a failure that
+	// did not fail, and the operator would go looking for a boot directory
+	// that is sitting there complete.
+	for _, line := range bootdir.Undeclared(inst) {
+		_, _ = fmt.Fprintf(stderr,
+			"cairn: %s. Everything else it declared rendered, and the boot directory is complete.\n", line)
+	}
 	files, err := bootdir.Render(inst)
 	if err != nil {
 		return err

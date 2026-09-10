@@ -430,17 +430,39 @@ func TestPromptsAreOrderedDeterministically(t *testing.T) {
 	}
 }
 
-// TestPromptsNeedAPromptsDirInTheLayout covers the layout that declares no
-// prompts directory. It is [ErrProviderLayout] rather than a silent omission,
-// for the reason every other artifact's is: writing nowhere looks exactly like
-// declaring nothing.
-func TestPromptsNeedAPromptsDirInTheLayout(t *testing.T) {
+// TestPromptsAreDroppedAndReportedWhenTheLayoutHasNowhereForThem covers the
+// layout that declares no prompts directory. The prompts are dropped, the boot
+// carries on, and [Undeclared] names what was lost.
+//
+// It replaces a test that pinned [ErrProviderLayout] here. The refusal's own
+// argument was that writing nowhere looks exactly like declaring nothing —
+// which is true, and is about silence rather than about refusing, so the
+// report satisfies it. See [Undeclared] for the rest of the reasoning,
+// including why a tree naming a renderer cairn does not have still fails.
+func TestPromptsAreDroppedAndReportedWhenTheLayoutHasNowhereForThem(t *testing.T) {
 	source := t.TempDir()
 	writePrompt(t, source, "handoff", "the handoff\n")
 
 	inst := promptsInstance(t, source, "handoff")
 	inst.Layout.PromptsDir = ""
-	if _, err := renderPrompts(inst); !errors.Is(err, ErrProviderLayout) {
-		t.Errorf("renderPrompts() returned error %v, want ErrProviderLayout", err)
+
+	files, err := renderPrompts(inst)
+	if err != nil {
+		t.Fatalf("renderPrompts() = %v, want the prompts dropped and no error", err)
+	}
+	if len(files) != 0 {
+		t.Errorf("renderPrompts() planted %d file(s) with nowhere to put them", len(files))
+	}
+
+	// The drop is not silent, and the report reads off the same directory the
+	// renderer read, so the two cannot disagree.
+	report := Undeclared(inst)
+	if len(report) != 1 {
+		t.Fatalf("Undeclared() = %v, want one line", report)
+	}
+	for _, want := range []string{profile.SpecKeyPrompts, "handoff", string(inst.Layout.Provider)} {
+		if !strings.Contains(report[0], want) {
+			t.Errorf("the report %q does not name %q", report[0], want)
+		}
 	}
 }

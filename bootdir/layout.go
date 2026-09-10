@@ -61,13 +61,18 @@ var ErrUnsupportedProvider = errors.New("unsupported provider")
 
 // ErrProviderLayout reports that a layout has nowhere to put something: a
 // provider's BootDirSpec no longer declares an artifact the tree takes from
-// it, the tree is malformed, or the manifest declares content this tree
+// it, the tree is malformed, or the manifest declares a document this tree
 // carries no destination for.
 //
-// It is an error rather than a fallback in every one of those cases, because
-// the failure it prevents is silent. A boot directory missing the file a
-// profile asked for looks exactly like a boot directory of a profile that
-// never asked.
+// It is an error rather than a fallback in each of those, because the failure
+// it prevents is silent and because none of them is an operator's to clear: a
+// malformed tree and a spec that moved on are cairn's and the library's, and a
+// tree with no instruction artifact renders an agent no instructions at all.
+//
+// It is NOT what a declared prompt or subagent gets from a tree with no
+// directory for one. That was this error's third case, and it retired: the
+// content is dropped and named on stderr instead — see [Undeclared] for why,
+// and for the one thing that must not happen either way, which is silence.
 var ErrProviderLayout = errors.New("this layout has no destination for that")
 
 // Artifact is one file of a boot directory or an installed layer: which

@@ -45,10 +45,19 @@ var ErrInstructionArtifact = errors.New("two documents claim the instruction art
 // there is nothing left for a profile to spell.
 //
 // A tree that declares no instruction artifact and a profile that has a body
-// is [ErrProviderLayout] and not a silent drop. It is the same refusal a
-// declared prompt gets from a tree with no prompts directory: a boot directory
-// missing the file a profile asked for looks exactly like a boot directory of
-// a profile that never asked.
+// is [ErrProviderLayout], and this stays a refusal where a dropped prompt
+// became a report — see [Undeclared], which is where that reasoning lives.
+//
+// The difference is severity, which is the axis that decided the other case
+// too. A dropped prompt costs a person one command they can see is absent; a
+// dropped subagent costs a dispatch that fails loudly. A dropped BODY costs
+// the whole instruction document, so what boots is an agent with no
+// instructions at all — not a boot directory with a block missing, but one
+// with nothing in it to read. There is no useful degraded form of that, and
+// nothing on stderr makes it into one.
+//
+// Note what it is NOT: no tree cairn ships can reach it, since both declare an
+// instruction artifact. It guards a tree somebody writes later.
 func instructionFile(inst *Instance) ([]File, bool, error) {
 	text := strings.TrimSpace(inst.Document)
 	if text == "" {

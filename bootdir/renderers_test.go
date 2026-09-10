@@ -299,45 +299,83 @@ func TestCodexRenderProducesNativeInstructionConfigAndSkills(t *testing.T) {
 	}
 }
 
-// TestCodexRenderReportsUnsupportedClaudeOnlyFeatures pins the refusal that
-// used to be a second code path. The Codex tree lists `prompts` and
-// `subagents` under renders and declares no directory for either, so the same
-// renderers Claude Code uses report that this tree has nowhere to put what the
-// manifest declared — rather than a shim per provider per feature.
-func TestCodexRenderReportsUnsupportedClaudeOnlyFeatures(t *testing.T) {
-	t.Run("prompts", func(t *testing.T) {
+// TestCodexRenderDropsAndReportsClaudeOnlyFeatures pins the warn-and-drop that
+// used to be a refusal, which in turn replaced a second code path. The Codex
+// tree lists `prompts` and `subagents` under renders and declares no directory
+// for either, so the same renderers Claude Code uses plant none of them and
+// [Undeclared] says so — rather than a shim per provider per feature, and
+// rather than a boot that will not happen at all.
+//
+// The Codex boot still succeeds, which is the whole change. Under the refusal
+// it did not: agent-setup declares `prompts:` once in base, so every profile
+// inherited it and all fifteen refused under `--provider codex` while all
+// fifteen booted under claude. Clearing that needed a per-provider
+// `prompts: null` in the catalog — provider knowledge, in the component that
+// owns none. See [Undeclared].
+func TestCodexRenderDropsAndReportsClaudeOnlyFeatures(t *testing.T) {
+	codexInstance := func(t *testing.T) *Instance {
+		t.Helper()
 		inst := contractInstance(t)
 		layout, err := LayoutFor(profile.ProviderCodex)
 		if err != nil {
 			t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
 		}
 		inst.Layout = layout
+		return inst
+	}
+
+	t.Run("prompts", func(t *testing.T) {
+		inst := codexInstance(t)
 		inst.Subagents = nil
 		inst.Profile.Spec[profile.SpecKeyPrompts] = json.RawMessage(`["report"]`)
 
-		_, err = Render(inst)
-		if !errors.Is(err, ErrProviderLayout) {
-			t.Fatalf("Render codex with prompts = %v, want ErrProviderLayout", err)
+		files, err := Render(inst)
+		if err != nil {
+			t.Fatalf("Render codex with prompts = %v, want the prompts dropped", err)
 		}
-		if !strings.Contains(err.Error(), profile.SpecKeyPrompts) {
-			t.Errorf("the error does not name prompts: %v", err)
+		for _, f := range files {
+			if strings.Contains(f.Path, "report") {
+				t.Errorf("the render planted %q into a tree with no prompts directory", f.Path)
+			}
+		}
+		if report := Undeclared(inst); len(report) != 1 ||
+			!strings.Contains(report[0], profile.SpecKeyPrompts) {
+			t.Errorf("Undeclared() = %v, want one line naming prompts", report)
 		}
 	})
 
 	t.Run("subagents", func(t *testing.T) {
-		inst := contractInstance(t)
-		layout, err := LayoutFor(profile.ProviderCodex)
-		if err != nil {
-			t.Fatalf("LayoutFor(%q): %v", profile.ProviderCodex, err)
-		}
-		inst.Layout = layout
+		inst := codexInstance(t)
 
-		_, err = Render(inst)
-		if !errors.Is(err, ErrProviderLayout) {
-			t.Fatalf("Render codex with subagents = %v, want ErrProviderLayout", err)
+		files, err := Render(inst)
+		if err != nil {
+			t.Fatalf("Render codex with subagents = %v, want the definitions dropped", err)
 		}
-		if !strings.Contains(err.Error(), profile.SpecKeySubagents) {
-			t.Errorf("the error does not name subagents: %v", err)
+		// The definition file by name. "agents/" would match the Codex tree's
+		// own .agents/skills/, which is a skill directory and not a
+		// definition — the two are unrelated and the tree plants one of them.
+		for _, f := range files {
+			if strings.HasSuffix(f.Path, "reviewer.md") {
+				t.Errorf("the render planted %q into a tree with no subagents directory", f.Path)
+			}
+		}
+		if report := Undeclared(inst); len(report) != 1 ||
+			!strings.Contains(report[0], profile.SpecKeySubagents) {
+			t.Errorf("Undeclared() = %v, want one line naming subagents", report)
+		}
+	})
+
+	// Both at once, because the report is a list and a profile that declares
+	// both should hear about both rather than about whichever is checked first.
+	t.Run("both", func(t *testing.T) {
+		inst := codexInstance(t)
+		inst.Profile.Spec[profile.SpecKeyPrompts] = json.RawMessage(`["report"]`)
+
+		if _, err := Render(inst); err != nil {
+			t.Fatalf("Render codex with both = %v, want both dropped", err)
+		}
+		if report := Undeclared(inst); len(report) != 2 {
+			t.Errorf("Undeclared() = %v, want a line for each collection", report)
 		}
 	})
 }

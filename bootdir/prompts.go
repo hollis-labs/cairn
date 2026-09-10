@@ -94,10 +94,11 @@ type PromptSource struct {
 // render never read. That is the same failure in a different collection as the
 // one the report exists to catch, so the read is shared instead.
 //
-// A profile declaring no prompts returns nothing and no error. The errors are
+// A profile declaring no prompts returns nothing and no error, and so does a
+// profile whose prompts this tree has nowhere to plant. The errors are
 // [renderPrompts]'s because they are raised here: [ErrNoProfile],
-// [ErrProviderLayout], [ErrPromptsSource], [ErrPromptName],
-// [ErrPromptNotFound] and [ErrPromptContent].
+// [ErrPromptsSource], [ErrPromptName], [ErrPromptNotFound] and
+// [ErrPromptContent].
 //
 // The output is deterministic: the prompts in the order the resolved manifest
 // carries them, which for a key the cascade composed is sorted — see
@@ -114,11 +115,13 @@ func PromptSources(inst *Instance) ([]PromptSource, error) {
 	if len(declared) == 0 {
 		return nil, nil
 	}
+	// A tree with no prompts directory plants none, and the operator is told
+	// by [Undeclared] rather than by a refusal here — see that function for
+	// why this stopped being an error. Dropping SILENTLY is still the one
+	// thing this must not do; the report is what makes the drop legible.
 	target := strings.TrimSpace(inst.Layout.PromptsDir)
 	if target == "" {
-		return nil, fmt.Errorf(
-			"%w: spec.%s declares %s, and the %s layout declares no prompts directory",
-			ErrProviderLayout, profile.SpecKeyPrompts, quotedNames(declared), inst.Layout.Provider)
+		return nil, nil
 	}
 	dir, err := inst.Profile.Spec.PromptsDir()
 	if err != nil {
