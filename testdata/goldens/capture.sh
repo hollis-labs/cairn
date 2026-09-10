@@ -43,6 +43,8 @@
 # environment:
 #   AGENT_SETUP   the agent-setup checkout; defaults to ~/dev/projects/agent-setup
 #   CAIRN         the cairn binary; built from this repo when unset
+#   PROVIDER      the harness to render; defaults to claude. agent-setup names
+#                 no provider, so cairn requires one — see PROVIDER below.
 
 set -euo pipefail
 
@@ -261,6 +263,19 @@ BOOT=$FIX/boot
 # Eight concrete profiles, in sorted order.
 BOOTS=(architect conductor director engineer orchestrator planner reviewer writer)
 
+# The harness this captures. It is passed rather than left to the profile
+# because agent-setup declares no provider at all any more — a runtime is a
+# launch's to choose, not an agent's to carry — and cairn refuses to render a
+# profile that names none rather than writing one harness's files into
+# another's directory. So `--provider` is required, and a capture that omitted
+# it stopped being able to run at commit afc6181.
+#
+# It is claude because that is the tree the goldens under trees/ hold. Naming
+# it here changes nothing about what is rendered: base declared `claude`
+# before it declared nothing, so the same document comes out either way, which
+# is what makes this a harness fix rather than a re-baseline.
+PROVIDER=${PROVIDER:-claude}
+
 fail() {
 	local id=$1
 	echo "capture.sh: rendering $id failed" >&2
@@ -274,6 +289,7 @@ for id in "${BOOTS[@]}"; do
 		--profile "$AGENT_SETUP" \
 		--scope "$FIX/scope" \
 		--session golden \
+		--provider "$PROVIDER" \
 		--boot-root "$BOOT" \
 		>"$OUT/stdout/$id.txt" 2>"$OUT/stderr/$id.txt" || fail "$id"
 done
@@ -289,6 +305,7 @@ mv "$BOOT" "$OUT/boot"
 mkdir -p "$OUT/install/base"
 "${render_env[@]}" "$CAIRN_BIN" install base \
 	--profile "$AGENT_SETUP" \
+	--provider "$PROVIDER" \
 	--root "$OUT/install/base" \
 	>"$OUT/stdout/base.txt" 2>"$OUT/stderr/base.txt" || fail base
 
