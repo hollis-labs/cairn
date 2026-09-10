@@ -129,8 +129,8 @@ func renderSkills(inst *Instance, declared []string, key skillsKey) ([]File, err
 	target := strings.TrimSpace(inst.Layout.SkillsDir)
 	if target == "" {
 		return nil, fmt.Errorf(
-			"%w: spec.%s declares %s, but this layout declares no skills directory",
-			ErrProviderLayout, key, quotedNames(declared))
+			"%w: spec.%s declares %s, and the %s layout declares no skills directory",
+			ErrProviderLayout, key, quotedNames(declared), inst.Layout.Provider)
 	}
 	source, err := skillsSource(inst.Profile.Spec, declared, key, inst.Home, inst.Env)
 	if err != nil {

@@ -14,16 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// SubagentsDirName is the directory, relative to the boot directory root, that
-// subagent definitions are planted into. It is Claude Code's on-disk
-// convention, one file per definition, and no provider's BootDirSpec declares
-// it.
-//
-// It is not [AgentsFileName]. That is the instruction file the instance itself
-// boots from; this is a directory of definitions for the agents it may
-// dispatch.
-const SubagentsDirName = ".claude/agents"
-
 // SubagentFileExt is the extension a definition is planted with. The file's
 // stem is the profile id, which is also what [SubagentNameKey] is forced to,
 // so the two cannot drift apart.
@@ -94,8 +84,8 @@ func renderSubagents(inst *Instance) ([]File, error) {
 	dir := strings.TrimSpace(inst.Layout.SubagentsDir)
 	if dir == "" {
 		return nil, fmt.Errorf(
-			"%w: spec.%s names %s, but this layout declares no subagents directory",
-			ErrProviderLayout, profile.SpecKeySubagents, quotedNames(subagentIDs(inst.Subagents)))
+			"%w: spec.%s names %s, and the %s layout declares no subagents directory",
+			ErrProviderLayout, profile.SpecKeySubagents, quotedNames(subagentIDs(inst.Subagents)), inst.Layout.Provider)
 	}
 
 	seen := make(map[string]struct{}, len(inst.Subagents))

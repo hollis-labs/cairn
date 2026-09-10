@@ -20,28 +20,13 @@ package install
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"strconv"
 
 	"github.com/chrispian/cairn/bootdir"
 	"github.com/chrispian/cairn/profile"
 )
-
-// ClaudeDirName is the directory, relative to the install root, that Claude
-// Code's installed layer is rendered into.
-const ClaudeDirName = ".claude"
-
-// CodexDirName is the directory, relative to the install root, that Codex's
-// global instruction and configuration files are rendered into.
-const CodexDirName = ".codex"
-
-// SettingsFileName is the name, inside a provider directory, of the settings
-// document the harness reads.
-const SettingsFileName = "settings.json"
-
-// SkillsDirName is the directory, inside a provider directory, the declared
-// skills are copied into.
-const SkillsDirName = "skills"
 
 // StagingPattern is the [os.MkdirTemp] pattern for the directory a render is
 // staged in before it is moved into place. It is created inside the install
@@ -111,8 +96,8 @@ type Layer struct {
 	// [bootdir.Instance].Templates does: a template may name a source, and
 	// resolving one is I/O.
 	//
-	// Only the two destinations [ClaudeRenderers] registers are rendered. The
-	// rest are boot-directory artifacts.
+	// Only the destinations the provider's tree lists under `installed` are
+	// rendered. The rest are boot-directory artifacts.
 	Templates map[string]string
 
 	// Sections is each declared slot's rendered section, keyed by slot name,
@@ -288,12 +273,20 @@ type Renderer struct {
 	// instance it is handed carries a [bootdir.Layout] naming the installed
 	// paths, so the same function serves both layers.
 	Render func(inst *bootdir.Instance) ([]File, error)
+
+	// Kind is the artifact kind the tree declared — one of bootdir's Kind
+	// constants. It is what decides which artifact carries the generated-file
+	// marker, so that the decision is made on what an artifact *is* rather
+	// than on how its path happens to be spelled.
+	Kind string
 }
 
-// ClaudeRenderers returns the artifacts of Claude Code's installed layer, in
-// render order.
+// installRenders maps an installed artifact kind onto the shared
+// boot-directory renderer that produces it.
 //
-// It is deliberately shorter than a boot directory's.
+// The installed layer is deliberately shorter than a boot directory's, and the
+// shortness is in the documents rather than here: a tree lists the artifacts
+// this layer holds, and what it does not list is not rendered.
 //
 // There is no boot file: slots are resolved when an instance is materialized,
 // and the installed layer is not. There is no MCP configuration: plan §6 drops
@@ -310,50 +303,108 @@ type Renderer struct {
 // start claiming ownership of arbitrary paths in a home directory for
 // orphan-reporting purposes, and having claimed them, report on them.
 //
-// Templates are rendered, but only the two destinations this list registers.
-// A template free to name any path in the operator's home would be the same
-// problem in a new key, and it would cost the check its whole point: which
-// artifacts cairn claims is settled here, not by the profile being checked,
-// which is what lets a check report a file left behind by a profile that
-// stopped declaring one. A template declared for any other destination is a
-// boot-directory artifact and is not rendered here.
+// Templates are rendered, but only the destinations a tree's installed section
+// names. A template free to name any path in the operator's home would be the
+// same problem in a new key, and it would cost the check its whole point:
+// which artifacts cairn claims is settled by the tree, not by the profile being
+// checked, which is what lets a check report a file left behind by a profile
+// that stopped declaring one. A template declared for any other destination is
+// a boot-directory artifact and is not rendered here.
 //
 // [Renderer.Fills] is not a hole in that. It lets a profile name the
-// subdirectories of an artifact this list already registers — never a new
-// artifact, and never a path outside one — and the leftover case still holds
-// inside every subdirectory named.
+// subdirectories of an artifact a tree already lists — never a new artifact,
+// and never a path outside one — and the leftover case still holds inside
+// every subdirectory named.
 //
-// The caller receives a fresh slice it may modify.
-func ClaudeRenderers() []Renderer {
-	return []Renderer{
-		{Artifact: bootdir.AgentsFileName, Render: bootdir.RenderAgentsTemplate},
-		{Artifact: bootdir.PointerFileName, Render: bootdir.RenderPointerTemplate},
-		{
-			Artifact:  SettingsFileName,
-			Render:    bootdir.RenderSettings,
-			Merge:     mergeSettingsArtifact,
-			Normalize: bootdir.IndentJSON,
-		},
-		{Artifact: SkillsDirName, Render: bootdir.RenderInstallSkills, Fills: installedSkillNames},
-	}
+// The map is keyed by implementation name, and an artifact that names none
+// uses the implementation registered under its kind. That is how one kind can
+// have two documents: a settings artifact is JSON here and TOML there, and the
+// tree says which, exactly as it does for a boot directory.
+var installRenders = map[string]func(inst *bootdir.Instance) ([]File, error){
+	bootdir.KindAgents:          bootdir.RenderAgentsTemplate,
+	bootdir.KindPointer:         bootdir.RenderPointerTemplate,
+	bootdir.KindSettings:        bootdir.RenderSettings,
+	bootdir.KindSkills:          bootdir.RenderInstallSkills,
+	bootdir.CodexConfigRenderer: bootdir.RenderCodexConfig,
 }
 
-// CodexRenderers returns the artifacts of Codex's installed layer, in render
-// order. Codex reads its global instruction and configuration files from
-// ~/.codex, but user skills from ~/.agents/skills, so these artifact labels
-// are install-root-relative rather than relative to one provider directory.
-func CodexRenderers() []Renderer {
-	return []Renderer{
-		{Artifact: CodexDirName + "/" + bootdir.AgentsFileName, Render: bootdir.RenderAgentsTemplate},
-		{
-			Artifact:  CodexDirName + "/" + bootdir.CodexConfigFileName,
-			Render:    bootdir.RenderSettings,
-			Merge:     mergeTOMLDocument,
-			Claim:     codexConfigClaimed,
-			Normalize: normalizeTOMLDocument,
-		},
-		{Artifact: bootdir.CodexSkillsDirName, Render: bootdir.RenderInstallSkills, Fills: installedSkillNames},
+// installMerges, installNormalizers, installClaims and installFills are the
+// behaviours a tree's installed artifact may name.
+//
+// The documents name which one applies; the logic stays here. Preserving an
+// operator's `model` and `modelSettings` while rewriting the keys cairn owns
+// is real logic and not a template, and moving it into a document would only
+// mean writing an interpreter for it.
+var (
+	installMerges = map[string]func(rendered, existing []byte) ([]byte, error){
+		"json-settings": mergeSettingsArtifact,
+		"toml-document": mergeTOMLDocument,
 	}
+	installNormalizers = map[string]func([]byte) []byte{
+		"json-indent":   bootdir.IndentJSON,
+		"toml-document": normalizeTOMLDocument,
+	}
+	installClaims = map[string]func(*profile.Resolved) (bool, error){
+		"codex-config": codexConfigClaimed,
+	}
+	installFills = map[string]func(*profile.Resolved) ([]string, error){
+		"install-skills": installedSkillNames,
+	}
+)
+
+// ErrInstalledLayout reports a tree whose installed section names an artifact
+// kind or a behaviour this package does not have. It is a malformed document
+// rather than anything an operator did, and it is an error rather than an
+// omission for the reason every other refusal here is: an installed layer
+// missing an artifact looks exactly like one that never had it.
+var ErrInstalledLayout = errors.New("installed layout names something cairn does not have")
+
+// installRenderers builds one provider's installed renderers, in the order its
+// tree lists them, resolving each artifact's kind and behaviours.
+func installRenderers(il bootdir.InstalledLayout) ([]Renderer, error) {
+	out := make([]Renderer, 0, len(il.Artifacts))
+	for _, a := range il.Artifacts {
+		impl := a.Render
+		if impl == "" {
+			impl = a.Kind
+		}
+		render, ok := installRenders[impl]
+		if !ok {
+			return nil, fmt.Errorf("%w: the %s tree installs an artifact of kind %q with %q",
+				ErrInstalledLayout, il.Layout.Provider, a.Kind, impl)
+		}
+		r := Renderer{Kind: a.Kind, Artifact: a.Label, Render: render}
+		if err := namedBehaviour(a.Merge, installMerges, &r.Merge, "merge", il, a); err != nil {
+			return nil, err
+		}
+		if err := namedBehaviour(a.Normalize, installNormalizers, &r.Normalize, "normalize", il, a); err != nil {
+			return nil, err
+		}
+		if err := namedBehaviour(a.Claim, installClaims, &r.Claim, "claim", il, a); err != nil {
+			return nil, err
+		}
+		if err := namedBehaviour(a.Fills, installFills, &r.Fills, "fills", il, a); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// namedBehaviour looks name up in table and assigns it to dest, leaving dest
+// alone when the document named none.
+func namedBehaviour[F any](name string, table map[string]F, dest *F, what string,
+	il bootdir.InstalledLayout, a bootdir.InstalledArtifact) error {
+	if name == "" {
+		return nil
+	}
+	fn, ok := table[name]
+	if !ok {
+		return fmt.Errorf("%w: the %s tree's %q artifact names the %s behaviour %q",
+			ErrInstalledLayout, il.Layout.Provider, a.Label, what, name)
+	}
+	*dest = fn
+	return nil
 }
 
 func codexConfigClaimed(resolved *profile.Resolved) (bool, error) {
@@ -389,36 +440,6 @@ func installedSkillNames(resolved *profile.Resolved) ([]string, error) {
 		return nil, ErrNoProfile
 	}
 	return resolved.Spec.InstallSkills()
-}
-
-// ClaudeLayout returns the [bootdir.Layout] the installed layer is rendered
-// through: the same artifact names a boot directory uses, at the paths the
-// harness reads them from beneath the install root.
-//
-// The boot and MCP artifacts are deliberately undeclared. A renderer handed an
-// undeclared path for content the profile declared reports it rather than
-// dropping it, which is why those two are not in [ClaudeRenderers] either.
-func ClaudeLayout() bootdir.Layout {
-	return bootdir.Layout{
-		Provider:  profile.ProviderClaude,
-		Agents:    bootdir.Artifact{RelPath: ClaudeDirName + "/" + bootdir.AgentsFileName},
-		Pointer:   bootdir.Artifact{RelPath: ClaudeDirName + "/" + bootdir.PointerFileName},
-		Settings:  bootdir.Artifact{RelPath: ClaudeDirName + "/" + SettingsFileName},
-		SkillsDir: ClaudeDirName + "/" + SkillsDirName,
-	}
-}
-
-// CodexLayout returns the [bootdir.Layout] the installed Codex layer is
-// rendered through. It deliberately names no pointer, prompt or subagent
-// locations: Codex reads AGENTS.md directly and has no Claude-shaped
-// equivalents for those artifacts in this release.
-func CodexLayout() bootdir.Layout {
-	return bootdir.Layout{
-		Provider:  profile.ProviderCodex,
-		Agents:    bootdir.Artifact{RelPath: CodexDirName + "/" + bootdir.AgentsFileName},
-		Settings:  bootdir.Artifact{RelPath: CodexDirName + "/" + bootdir.CodexConfigFileName, Mode: 0o600},
-		SkillsDir: bootdir.CodexSkillsDirName,
-	}
 }
 
 // GeneratedMarker returns the one line the installed instruction file opens

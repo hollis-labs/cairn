@@ -167,7 +167,7 @@ func TestInstallGeneratedMarkerSurvivesToDisk(t *testing.T) {
 		t.Errorf("the installed .claude/AGENTS.md opens\n%s\nwant it to open with\n%s", content, want)
 	}
 	pointer := string(installed(t, lay.Root, ".claude/CLAUDE.md"))
-	if want := "@" + bootdir.AgentsFileName + "\n"; pointer != want {
+	if want := "@" + "AGENTS.md" + "\n"; pointer != want {
 		t.Errorf("the installed .claude/CLAUDE.md holds %q, want the template's own text %q", pointer, want)
 	}
 }
@@ -355,7 +355,7 @@ func TestInstallOverwritesItsOwnOutput(t *testing.T) {
 	}
 	// The template is what the instruction file is rendered from now, so
 	// changing the profile means changing that.
-	lay.Templates[bootdir.AgentsFileName] = "second\n"
+	lay.Templates["AGENTS.md"] = "second\n"
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("the second Install: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestInstallRefusesAnOccupiedDestinationBeforeMovingAnything(t *testing.T) {
 			// The instruction file is first in render order, so occupying the
 			// settings path proves the refusal happens before any move rather
 			// than at the occupied file's turn.
-			dest := filepath.Join(rootDir, ClaudeDirName, SettingsFileName)
+			dest := filepath.Join(rootDir, ".claude", "settings.json")
 			tc.occupy(t, dest)
 
 			_, err := Install(lay)
@@ -524,8 +524,8 @@ func TestInstallRefusesAnOccupiedDestinationBeforeMovingAnything(t *testing.T) {
 
 			// Nothing ahead of it in render order moved.
 			for _, rel := range []string{
-				path.Join(ClaudeDirName, bootdir.AgentsFileName),
-				path.Join(ClaudeDirName, "CLAUDE.md"),
+				path.Join(".claude", "AGENTS.md"),
+				path.Join(".claude", "CLAUDE.md"),
 			} {
 				if _, err := os.Lstat(filepath.Join(rootDir, filepath.FromSlash(rel))); !errors.Is(err, os.ErrNotExist) {
 					t.Errorf("%s was written before the install refused: %v", rel, err)
@@ -556,7 +556,7 @@ func TestInstallNamesTheComponentInTheWay(t *testing.T) {
 	lay := fullyDeclaredLayer(t)
 	rootDir := lay.Root.Dir()
 
-	blocker := filepath.Join(rootDir, ClaudeDirName, SkillsDirName)
+	blocker := filepath.Join(rootDir, ".claude", "skills")
 	if err := os.MkdirAll(filepath.Dir(blocker), 0o755); err != nil {
 		t.Fatalf("create %s: %v", filepath.Dir(blocker), err)
 	}
@@ -577,9 +577,9 @@ func TestInstallNamesTheComponentInTheWay(t *testing.T) {
 
 	// Nothing moved: the refusal came before the first rename.
 	for _, rel := range []string{
-		path.Join(ClaudeDirName, bootdir.AgentsFileName),
-		path.Join(ClaudeDirName, "CLAUDE.md"),
-		path.Join(ClaudeDirName, SettingsFileName),
+		path.Join(".claude", "AGENTS.md"),
+		path.Join(".claude", "CLAUDE.md"),
+		path.Join(".claude", "settings.json"),
 	} {
 		if _, err := os.Lstat(filepath.Join(rootDir, filepath.FromSlash(rel))); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s was written before the install refused: %v", rel, err)

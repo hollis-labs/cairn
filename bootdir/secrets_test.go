@@ -61,7 +61,7 @@ func TestATemplateCannotReachAManifestValue(t *testing.T) {
 	markers.WriteString("mcp: <!-- cairn:value mcp -->\n")
 	markers.WriteString("settings: <!-- cairn:value settings -->\n")
 
-	inst.Templates = map[string]string{bootdir.AgentsFileName: markers.String()}
+	inst.Templates = map[string]string{"AGENTS.md": markers.String()}
 	inst.Sections = map[string]string{"note": "## Note\n\nnothing secret"}
 	inst.Values = map[string]string{
 		"binding": "eng", "profile": "engineer", "provider": "claude",
@@ -77,7 +77,7 @@ func TestATemplateCannotReachAManifestValue(t *testing.T) {
 	var sawTemplate, sawMCP bool
 	for _, f := range files {
 		switch f.Path {
-		case bootdir.AgentsFileName:
+		case "AGENTS.md":
 			sawTemplate = true
 			if strings.Contains(string(f.Content), secret) {
 				t.Errorf("%s carries a manifest value:\n%s", f.Path, f.Content)

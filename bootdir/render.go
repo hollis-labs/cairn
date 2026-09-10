@@ -156,7 +156,11 @@ func Render(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
-	return RenderWith(RenderersFor(inst.Layout.Provider), inst)
+	renderers, err := Renderers(inst.Layout)
+	if err != nil {
+		return nil, err
+	}
+	return RenderWith(renderers, inst)
 }
 
 // RenderWith is [Render] over a caller-supplied renderer list.

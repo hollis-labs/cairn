@@ -1325,3 +1325,21 @@ func TestANestedProfileIsAnOrdinaryProfile(t *testing.T) {
 		}
 	})
 }
+
+// TestPromptFlagUsageMatchesTheLayout holds the one place a layout's prompt
+// namespace is written out rather than read.
+//
+// A flag's help is one string and there are as many namespaces as there are
+// trees, so --prompt spells Claude Code's. That is a duplicate of the tree, and
+// this is what keeps it from becoming a stale one: a tree that moved its
+// prompts directory fails here rather than telling an operator to type a
+// command that is not there.
+func TestPromptFlagUsageMatchesTheLayout(t *testing.T) {
+	layout, err := bootdir.LayoutFor(profile.ProviderClaude)
+	if err != nil {
+		t.Fatalf("LayoutFor(%q): %v", profile.ProviderClaude, err)
+	}
+	if want := "/" + layout.PromptNamespace + ":<name>"; !strings.Contains(promptFlagUsage, want) {
+		t.Errorf("--prompt's help does not say %q:\n%s", want, promptFlagUsage)
+	}
+}

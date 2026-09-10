@@ -992,27 +992,33 @@ func bootPrompts(inst *bootdir.Instance) []reportedTemplate {
 // with the path this layer writes each at and dropping every destination it
 // does not render.
 //
-// The installed layer renders two of the manifest's destinations and writes
+// The installed layer renders some of the manifest's destinations and writes
 // them beneath a provider directory of its own, so a report naming the
 // manifest's own key would send an operator looking for "AGENTS.md" when the
 // file is at ".claude/AGENTS.md", and one walking every destination would name
 // files this layer never writes at all. The registration list decides which
 // destinations are in play and the layout decides where each one lands, which
-// is the same pair [github.com/chrispian/cairn/install.Render] renders from.
+// is the same pair [github.com/chrispian/cairn/install.Render] renders from —
+// and both now come from one layout document, so they cannot disagree.
+//
+// The destination a template renders from is the artifact's own, not this
+// function's: cairn does not know that an instruction file is called
+// AGENTS.md, only that the tree said which destination its agents artifact
+// renders from.
 func installedTemplates(templates map[string]string, renderers []install.Renderer, layout bootdir.Layout) []reportedTemplate {
-	paths := map[string]bootdir.Artifact{
-		bootdir.AgentsFileName:  layout.Agents,
-		bootdir.PointerFileName: layout.Pointer,
+	byKind := map[string]bootdir.Artifact{
+		bootdir.KindAgents:  layout.Agents,
+		bootdir.KindPointer: layout.Pointer,
 	}
-	out := make([]reportedTemplate, 0, len(paths))
+	out := make([]reportedTemplate, 0, len(byKind))
 	for _, r := range renderers {
-		artifact, rendered := paths[r.Artifact]
-		if !rendered || !artifact.Declared() {
+		artifact, rendered := byKind[r.Kind]
+		if !rendered || !artifact.Declared() || artifact.Dest == "" {
 			continue
 		}
-		if text, declared := templates[r.Artifact]; declared {
+		if text, declared := templates[artifact.Dest]; declared {
 			out = append(out, reportedTemplate{
-				spec: profile.SpecKeyTemplates, key: r.Artifact, path: artifact.RelPath, text: text})
+				spec: profile.SpecKeyTemplates, key: artifact.Dest, path: artifact.RelPath, text: text})
 		}
 	}
 	return out

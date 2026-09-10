@@ -1,89 +1,77 @@
 package bootdir
 
 import (
-	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/chrispian/cairn/profile"
 )
 
-// ErrUnsupportedFeature reports a manifest key that has no provider-native
-// materialization for the selected harness.
-var ErrUnsupportedFeature = errors.New("unsupported provider feature")
+// bootRenderers is every renderer a boot tree can name, keyed by the manifest
+// key it renders.
+//
+// It is a registry rather than a list because which renderers run, and in what
+// order, is the tree's to say — see [Layout.Renders]. What stays here is the
+// rendering itself, which is the same function for every harness: a skill is
+// copied the same way into whichever directory the tree names.
+var bootRenderers = map[string]func(*Instance) ([]File, error){
+	profile.SpecKeyTemplates: renderTemplates,
+	profile.SpecKeyMCP:       renderMCP,
+	profile.SpecKeySettings:  RenderSettings,
+	profile.SpecKeySkills:    RenderSkills,
+	profile.SpecKeyPrompts:   renderPrompts,
+	profile.SpecKeySubagents: renderSubagents,
+	profile.SpecKeyTrees:     renderTrees,
+	profile.SpecKeyFiles:     renderFiles,
 
-// Renderers returns the artifact renderers a boot directory is rendered from,
-// in render order.
+	// A second implementation of one key. Which of the two runs is the tree's
+	// to say — see [Layout.RenderImpls] — and not a provider test taken here.
+	CodexConfigRenderer: RenderCodexConfig,
+}
+
+// CodexConfigRenderer is the name a layout document gives the settings
+// renderer that produces Codex's config.toml.
+const CodexConfigRenderer = "codex-config"
+
+// Renderers returns the artifact renderers l's boot directory is rendered
+// from, in the order its document names them.
 //
 // The order is the order files appear in a rendering, and it is also the order
-// a failure is reported in, so the templates come first: a profile with a
-// broken marker should fail on the marker, not on a skill.
+// a failure is reported in, so a tree names the templates first: a profile
+// with a broken marker should fail on the marker, not on a skill.
 //
-// Each Artifact is the name of one manifest key or one line of the output
-// contract, which is what a diagnostic quotes. It is a label and never a path.
-// Two of the artifacts take their paths from the provider's BootDirSpec; the
-// rest take them from the manifest, and the templates, skills, prompts,
-// subagents, trees and files renderers each emit many files.
-func Renderers() []Renderer {
-	return claudeRenderers()
+// Each Artifact is the name of the manifest key its renderer reads, which is
+// what a diagnostic quotes. It is a label and never a path — the templates,
+// skills, prompts, subagents, trees and files renderers each emit many files,
+// at paths the tree and the manifest decide between them.
+//
+// A tree naming a renderer cairn does not have reports [ErrProviderLayout],
+// which is the malformed-document case rather than anything an operator did.
+func Renderers(l Layout) ([]Renderer, error) {
+	out := make([]Renderer, 0, len(l.Renders))
+	for _, key := range l.Renders {
+		impl := key
+		if named := l.RenderImpls[key]; named != "" {
+			impl = named
+		}
+		render, ok := bootRenderers[impl]
+		if !ok {
+			return nil, fmt.Errorf("%w: the %s layout renders %q with %q, which cairn has no renderer for",
+				ErrProviderLayout, l.Provider, key, impl)
+		}
+		out = append(out, Renderer{Artifact: key, Render: render})
+	}
+	return out, nil
 }
 
-// RenderersFor returns the renderers for one provider's boot directory.
-func RenderersFor(p profile.Provider) []Renderer {
-	switch p {
-	case profile.ProviderCodex:
-		return codexRenderers()
-	default:
-		return claudeRenderers()
+// RendererKeys returns every manifest key a layout document may name under
+// `renders`, sorted. It exists so that a document's own tests, and a
+// diagnostic, can name the set rather than repeat it.
+func RendererKeys() []string {
+	out := make([]string, 0, len(bootRenderers))
+	for key := range bootRenderers {
+		out = append(out, key)
 	}
-}
-
-func claudeRenderers() []Renderer {
-	return []Renderer{
-		{Artifact: profile.SpecKeyTemplates, Render: renderTemplates},
-		{Artifact: ".mcp.json", Render: renderMCP},
-		{Artifact: ".claude/settings.json", Render: RenderSettings},
-		{Artifact: SkillsDirName, Render: RenderSkills},
-		{Artifact: PromptsDirName, Render: renderPrompts},
-		{Artifact: SubagentsDirName, Render: renderSubagents},
-		{Artifact: profile.SpecKeyTrees, Render: renderTrees},
-		{Artifact: profile.SpecKeyFiles, Render: renderFiles},
-	}
-}
-
-func codexRenderers() []Renderer {
-	return []Renderer{
-		{Artifact: profile.SpecKeyTemplates, Render: renderTemplates},
-		{Artifact: CodexConfigFileName, Render: RenderSettings},
-		{Artifact: CodexSkillsDirName, Render: RenderSkills},
-		{Artifact: profile.SpecKeyPrompts, Render: renderUnsupportedPrompts},
-		{Artifact: profile.SpecKeySubagents, Render: renderUnsupportedSubagents},
-		{Artifact: profile.SpecKeyTrees, Render: renderTrees},
-		{Artifact: profile.SpecKeyFiles, Render: renderFiles},
-	}
-}
-
-func renderUnsupportedPrompts(inst *Instance) ([]File, error) {
-	if inst == nil || inst.Profile == nil {
-		return nil, ErrNoProfile
-	}
-	declared, err := inst.Profile.Spec.Prompts()
-	if err != nil {
-		return nil, err
-	}
-	if len(declared) == 0 {
-		return nil, nil
-	}
-	return nil, fmt.Errorf("%w: %q has no prompt-command directory in the %q layout; spec.%s declares %s",
-		ErrUnsupportedFeature, inst.Layout.Provider, inst.Layout.Provider, profile.SpecKeyPrompts, quotedNames(declared))
-}
-
-func renderUnsupportedSubagents(inst *Instance) ([]File, error) {
-	if inst == nil || inst.Profile == nil {
-		return nil, ErrNoProfile
-	}
-	if len(inst.Subagents) == 0 {
-		return nil, nil
-	}
-	return nil, fmt.Errorf("%w: %q has no subagent definition directory in the %q layout; spec.%s names %s",
-		ErrUnsupportedFeature, inst.Layout.Provider, inst.Layout.Provider, profile.SpecKeySubagents, quotedNames(subagentIDs(inst.Subagents)))
+	slices.Sort(out)
+	return out
 }

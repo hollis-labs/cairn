@@ -180,7 +180,7 @@ func settingsLayer(t *testing.T, document string) *Layer {
 // state an install finds when the harness or the operator got there first.
 func plantSettings(t *testing.T, lay *Layer, document string) {
 	t.Helper()
-	dest, err := lay.Root.Path(".claude/" + SettingsFileName)
+	dest, err := lay.Root.Path(".claude/" + "settings.json")
 	if err != nil {
 		t.Fatalf("resolve the settings path: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestInstallKeepsASettingsKeyCairnNeverDeclared(t *testing.T) {
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	got := string(installed(t, lay.Root, ".claude/"+SettingsFileName))
+	got := string(installed(t, lay.Root, ".claude/"+"settings.json"))
 	if !strings.Contains(got, `"model": "opusplan"`) {
 		t.Fatalf("the install deleted a key cairn never declared:\n%s", got)
 	}
@@ -225,7 +225,7 @@ func TestInstallOverwritesASettingsKeyCairnDeclares(t *testing.T) {
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	got := string(installed(t, lay.Root, ".claude/"+SettingsFileName))
+	got := string(installed(t, lay.Root, ".claude/"+"settings.json"))
 	if strings.Contains(got, "bypassPermissions") {
 		t.Errorf("the install left a declared key the operator had changed:\n%s", got)
 	}
@@ -252,8 +252,8 @@ func TestInstallOnACleanRootIsTheRender(t *testing.T) {
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	got := installed(t, lay.Root, ".claude/"+SettingsFileName)
-	want := renderedFile(t, rendered, ".claude/"+SettingsFileName).Content
+	got := installed(t, lay.Root, ".claude/"+"settings.json")
+	want := renderedFile(t, rendered, ".claude/"+"settings.json").Content
 	if string(got) != string(want) {
 		t.Errorf("the installed settings hold\n\t%q\nwant the render\n\t%q", got, want)
 	}
@@ -269,11 +269,11 @@ func TestInstallTwiceWritesTheSameSettings(t *testing.T) {
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("first Install: %v", err)
 	}
-	once := string(installed(t, lay.Root, ".claude/"+SettingsFileName))
+	once := string(installed(t, lay.Root, ".claude/"+"settings.json"))
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("second Install: %v", err)
 	}
-	if twice := string(installed(t, lay.Root, ".claude/"+SettingsFileName)); twice != once {
+	if twice := string(installed(t, lay.Root, ".claude/"+"settings.json")); twice != once {
 		t.Errorf("the second install rewrote the document:\n\tonce  %q\n\ttwice %q", once, twice)
 	}
 }

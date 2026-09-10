@@ -54,8 +54,8 @@ func renderMCP(inst *Instance) ([]File, error) {
 	}
 	if !inst.Layout.MCP.Declared() {
 		return nil, fmt.Errorf(
-			"%w: spec.%s declares %d servers, but this layout declares no path for an MCP configuration",
-			ErrProviderLayout, profile.SpecKeyMCP, len(declared))
+			"%w: spec.%s declares %d servers, and the %s layout declares no path for an MCP configuration",
+			ErrProviderLayout, profile.SpecKeyMCP, len(declared), inst.Layout.Provider)
 	}
 
 	servers := make(map[string]mcpServerConfig, len(declared))

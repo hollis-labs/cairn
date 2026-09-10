@@ -69,8 +69,8 @@ type PromptSource struct {
 	From string
 
 	// Path is where the prompt plants, relative to the boot directory root.
-	// It is what /Name resolves to under [PromptNamespace] and what an
-	// operator looks for, so it is what a diagnostic about the planted
+	// It is what /Name resolves to under the layout's prompt namespace and
+	// what an operator looks for, so it is what a diagnostic about the planted
 	// command names.
 	Path string
 
@@ -117,8 +117,8 @@ func PromptSources(inst *Instance) ([]PromptSource, error) {
 	target := strings.TrimSpace(inst.Layout.PromptsDir)
 	if target == "" {
 		return nil, fmt.Errorf(
-			"%w: spec.%s declares %s, but this layout declares no prompts directory",
-			ErrProviderLayout, profile.SpecKeyPrompts, quotedNames(declared))
+			"%w: spec.%s declares %s, and the %s layout declares no prompts directory",
+			ErrProviderLayout, profile.SpecKeyPrompts, quotedNames(declared), inst.Layout.Provider)
 	}
 	dir, err := inst.Profile.Spec.PromptsDir()
 	if err != nil {
@@ -307,7 +307,7 @@ func renderPrompt(inst *Instance, src PromptSource) (File, error) {
 	if strings.TrimSpace(rendered) == "" {
 		return File{}, fmt.Errorf("%w: prompt %q at %s %s, so /%s:%s would answer "+
 			"\"Unknown command\"", ErrPromptContent, src.Name, src.From, emptiedBy(src.Text),
-			PromptNamespace, src.Name)
+			inst.Layout.PromptNamespace, src.Name)
 	}
 	if !strings.HasSuffix(rendered, "\n") {
 		rendered += "\n"

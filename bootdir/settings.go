@@ -121,9 +121,6 @@ func RenderSettings(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
-	if inst.Layout.Provider == profile.ProviderCodex {
-		return renderCodexConfig(inst)
-	}
 	stored, declared, err := inst.Profile.Spec.Settings(inst.Layout.Provider)
 	if err != nil {
 		return nil, err
@@ -178,25 +175,21 @@ func RenderSettings(inst *Instance) ([]File, error) {
 // out of a full document — puts the mapping here instead, which is the hardcode
 // the accessor exists to remove.
 //
-// This helper is Claude-only. Codex grants directories through config.toml
-// under a different key, and [RenderSettings] dispatches to the Codex TOML
-// renderer before this function is called.
+// This helper is part of the Claude-shaped settings renderer rather than a
+// dispatch inside it. Codex grants directories through config.toml under a
+// different key, which is why a codex tree names [RenderCodexConfig] for its
+// settings key instead — the choice is the tree's, made once, rather than a
+// provider test taken again here.
 func accessFragment(inst *Instance) (json.RawMessage, error) {
 	dirs, err := grantedDirectories(inst)
 	if err != nil || len(dirs) == 0 {
 		return nil, err
 	}
-	switch inst.Layout.Provider {
-	case profile.ProviderClaude:
-		doc, err := (&goprovider.ClaudeAdapter{AdditionalDirectories: dirs}).SettingsDocument()
-		if err != nil {
-			return nil, err
-		}
-		return encodeFragment(doc)
-	default:
-		return nil, fmt.Errorf("%w: %q, and spec.%s names a directory to grant through it",
-			ErrUnsupportedProvider, inst.Layout.Provider, profile.SpecKeyAccess)
+	doc, err := (&goprovider.ClaudeAdapter{AdditionalDirectories: dirs}).SettingsDocument()
+	if err != nil {
+		return nil, err
 	}
+	return encodeFragment(doc)
 }
 
 // grantedDirectories returns every directory inst may reach: the scope first,

@@ -6,66 +6,37 @@
 // tree beside the target and moves it into place with one rename, so a boot
 // directory is either complete or absent. A half-built boot directory is one
 // an agent might boot from.
+//
+// # The layout is a document, not code
+//
+// Where each artifact lands is read from a layout document — one per harness,
+// under [LayoutDir], embedded in the binary and parsed at startup. No file
+// name a harness reads appears in this package's Go: not AGENTS.md, not
+// .claude/skills, not config.toml. A second harness is a second tree rather
+// than a second code path, and the opinion about what a boot directory should
+// contain belongs to whoever authored the tree.
+//
+// The consequence worth stating is the one cairn wanted: nothing here requires
+// a profile to declare an instruction file, because nothing here can recognize
+// one. A profile renders what it declares, where the tree says it goes.
 package bootdir
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 
 	"github.com/chrispian/cairn/profile"
 	goprovider "github.com/hollis-labs/go-providers/provider"
 )
 
-// AgentsFileName is the template destination the installed layer renders its
-// instruction file from. Cairn declares the name rather than reading it from a
-// provider's BootDirSpec: it is the one artifact whose name is the same for
-// every harness.
-//
-// It is not a file cairn insists on. A boot directory renders whatever
-// templates a profile declares, at whatever paths it declares them; this name
-// matters only where a layout has to map a destination onto a path of its own.
-const AgentsFileName = "AGENTS.md"
-
-// PointerFileName is Claude Code's own instruction file. Cairn declares the
-// name because Claude's installed layout has to know which template
-// destination lands there; what the file holds is the profile's, like every
-// other template.
-const PointerFileName = "CLAUDE.md"
-
-// SkillsDirName is the directory, relative to the boot directory root,
-// declared skills are planted into. No provider's BootDirSpec declares it;
-// it is Claude Code's on-disk convention, one directory per skill.
-const SkillsDirName = ".claude/skills"
-
-// CodexSkillsDirName is the user/repository skill directory Codex discovers.
-// Unlike Claude Code, Codex does not read skills from its config directory;
-// user-installed skills live under ~/.agents/skills and project skills under a
-// repository's .agents/skills tree.
-const CodexSkillsDirName = ".agents/skills"
-
-// CodexConfigFileName is the configuration document Codex reads as TOML.
-const CodexConfigFileName = "config.toml"
-
 // SkillFileName is the file a skill directory must hold for a harness to load
 // the skill at all.
-const SkillFileName = "SKILL.md"
-
-// PromptNamespace is the commands subdirectory cairn plants prompts into, and
-// the prefix a planted prompt is invoked by: `/boot:<name>`.
 //
-// The namespace is required rather than incidental. A subdirectory of the
-// commands directory genuinely namespaces the command rather than flattening
-// it — verified against the harness, with the bare name answering "Unknown
-// command" as the control — so a prompt cairn planted is addressed as cairn's
-// and can never collide with a command the operator wrote by hand beside it.
-const PromptNamespace = "boot"
-
-// PromptsDirName is the directory, relative to the boot directory root,
-// declared prompts are planted into, one file per prompt. No provider's
-// BootDirSpec declares it; it is Claude Code's on-disk convention for custom
-// commands, under [PromptNamespace].
-const PromptsDirName = ".claude/commands/" + PromptNamespace
+// It is not in a layout document because it is not a placement. Both harnesses
+// require it, and what it governs is the source directory cairn copies from
+// rather than where the copy lands: a directory without it is not a skill, and
+// planting one would be planting something no harness will read.
+const SkillFileName = "SKILL.md"
 
 // JSONIndent is one level of indentation in a rendered JSON artifact.
 //
@@ -84,21 +55,38 @@ const DefaultFileMode fs.FileMode = 0o644
 // is created with.
 const DefaultDirMode fs.FileMode = 0o755
 
-// ErrUnsupportedProvider reports that no layout is implemented for a profile's
-// provider, or that the profile declares none at all.
+// ErrUnsupportedProvider reports that cairn holds no layout document for a
+// profile's provider, or that the profile declares none at all.
 var ErrUnsupportedProvider = errors.New("unsupported provider")
 
-// ErrProviderLayout reports that a provider's BootDirSpec no longer declares
-// an artifact Cairn renders for it, so Cairn would be writing to a path the
-// harness has stopped reading. It is an error rather than a fallback, because
-// the failure it prevents is silent.
-var ErrProviderLayout = errors.New("provider no longer declares an artifact cairn renders")
+// ErrProviderLayout reports that a layout has nowhere to put something: a
+// provider's BootDirSpec no longer declares an artifact the tree takes from
+// it, the tree is malformed, or the manifest declares content this tree
+// carries no destination for.
+//
+// It is an error rather than a fallback in every one of those cases, because
+// the failure it prevents is silent. A boot directory missing the file a
+// profile asked for looks exactly like a boot directory of a profile that
+// never asked.
+var ErrProviderLayout = errors.New("this layout has no destination for that")
 
-// Artifact is one file of a boot directory: where the harness reads it from,
-// and the mode it is written with.
+// Artifact is one file of a boot directory or an installed layer: which
+// template destination it renders from, where the harness reads it, and the
+// mode it is written with.
 type Artifact struct {
-	// RelPath is the path relative to the boot directory root,
-	// slash-separated. Empty means the layout does not carry this artifact.
+	// Dest is the spec.templates destination this artifact renders from, for
+	// the artifacts that render from one. Empty for the artifacts cairn builds
+	// rather than substitutes — the MCP configuration and the settings
+	// document.
+	//
+	// It is carried rather than assumed because the two layers differ: a boot
+	// directory plants a template where the manifest declared it, and the
+	// installed layer maps a destination onto a path of its own.
+	Dest string
+
+	// RelPath is the path relative to the boot directory root or the install
+	// root, slash-separated. Empty means the layout does not carry this
+	// artifact.
 	RelPath string
 
 	// Mode is the permission mode. Zero means [DefaultFileMode].
@@ -109,26 +97,50 @@ type Artifact struct {
 func (a Artifact) Declared() bool { return a.RelPath != "" }
 
 // Layout is where one provider's harness reads each boot-directory artifact
-// from.
+// from. Every field is read from that harness's layout document.
 //
-// Three of its artifacts — Pointer, MCP and Settings — are taken from
+// An artifact whose document entry says provider_path is taken from
 // go-providers' BootDirSpec, which is the library that owns each harness's
 // on-disk convention. Cairn takes the path and the mode from there and
 // supplies its own content: the spec's own render functions are never called,
 // because some of them have side effects on the operator's real home
 // directory.
-//
-// Agents, Skills, Subagents and Prompts are Cairn's, not the provider's. No
-// BootDirSpec declares any of them.
 type Layout struct {
 	// Provider is the harness this layout describes.
 	Provider profile.Provider
 
-	// Agents is where a template declared for [AgentsFileName] is written.
+	// Renders names the renderers this tree carries, in render order. Each is
+	// a manifest key, and [Renderers] resolves one to the function that
+	// renders it.
+	//
+	// A renderer absent here is one whose content this harness materializes
+	// some other way, and that is different from one whose destination is
+	// undeclared. Codex has no MCP file because its servers are keys of
+	// config.toml, so `mcp` is absent from its list; it has no prompts
+	// directory at all, so `prompts` is present and the renderer refuses when
+	// a profile declares any.
+	Renders []string
+
+	// RenderImpls names which implementation renders a key, for the keys where
+	// there is more than one. A key absent here is rendered by the
+	// implementation of the same name.
+	//
+	// It is what keeps a difference in a document's *content* from being a
+	// second code path too. A settings document is JSON for one harness and
+	// TOML for another, with different keys and a different place for MCP
+	// servers — that is not a placement, so a path cannot express it, and a
+	// tree names the renderer it wants rather than cairn testing which
+	// provider it is.
+	//
+	// The key stays the label a diagnostic quotes, so "render settings:" reads
+	// the same whichever implementation ran.
+	RenderImpls map[string]string
+
+	// Agents is where the template destination Agents.Dest names is written.
 	Agents Artifact
 
-	// Pointer is where a template declared for [PointerFileName] is written.
-	// Undeclared when the harness reads [AgentsFileName] directly.
+	// Pointer is the harness's own instruction file, where it reads one
+	// separate from Agents. Undeclared when the harness reads Agents directly.
 	Pointer Artifact
 
 	// MCP is the MCP server configuration.
@@ -143,34 +155,104 @@ type Layout struct {
 	SkillsDir string
 
 	// SubagentsDir is the directory subagent definitions are planted under,
-	// one file per named profile. Like SkillsDir it is cairn's, not the
-	// provider's: no BootDirSpec declares it.
+	// one file per named profile.
 	SubagentsDir string
 
 	// PromptsDir is the directory declared prompts are planted under, one file
-	// per prompt. Like SkillsDir and SubagentsDir it is cairn's, not the
-	// provider's: no BootDirSpec declares it.
+	// per prompt.
 	PromptsDir string
+
+	// PromptNamespace is the prefix a planted prompt is invoked by:
+	// `/<namespace>:<name>`. Empty for a tree that plants no prompts.
+	PromptNamespace string
+
+	// DropTemplates are the spec.templates destinations this tree has no
+	// reader for. A profile that declares one renders nothing rather than
+	// planting a file the harness never opens.
+	DropTemplates []string
 
 	// CwdPreference is where the harness expects to be invoked, and
 	// ProjectDirArg is its flag pattern for granting access to the scope
-	// directory. Both come from the provider's BootDirSpec. Cairn does not
-	// launch anything, so nothing here reads them; they are carried so that
-	// the caller printing a boot directory can also print how to open it.
+	// directory. Cairn does not launch anything, so nothing here reads them;
+	// they are carried so that the caller printing a boot directory can also
+	// print how to open it.
 	CwdPreference goprovider.CwdPreference
 	ProjectDirArg string
 	EnvAmendments []string
 
 	// HomeResourcePaths are provider-home-relative resources Cairn does not
-	// render, but a launcher must deliberately provide when EnvAmendments points
-	// the harness at the boot directory as its home.
+	// render, but a launcher must deliberately provide when EnvAmendments
+	// points the harness at the boot directory as its home.
 	HomeResourcePaths []string
+}
+
+// Drops reports whether dest is a template destination this tree has no reader
+// for.
+func (l Layout) Drops(dest string) bool {
+	for _, d := range l.DropTemplates {
+		if d == dest {
+			return true
+		}
+	}
+	return false
+}
+
+// InstalledLayout is where one provider's installed layer is written: the
+// directory beneath the install root, the artifacts in render order, and the
+// [Layout] the shared renderers read their paths from.
+//
+// It is one value rather than three lookups so that the directory and the
+// paths in the layout cannot be answered from different places and disagree.
+type InstalledLayout struct {
+	// Dir is the provider directory relative to the install root, and the
+	// containment boundary a render is checked against. "." is the root
+	// itself, which is what a harness reading files from two unrelated
+	// directories needs.
+	Dir string
+
+	// Artifacts are what this layer holds, in render order.
+	Artifacts []InstalledArtifact
+
+	// Layout names each artifact's path beneath the install root.
+	Layout Layout
+}
+
+// InstalledArtifact is one artifact of an installed layer as its document
+// declares it.
+//
+// Merge, Normalize, Claim and Fills name logic rather than carry it. Preserving
+// an operator's own keys while rewriting the ones cairn owns is real logic and
+// stays in Go; what belongs in a document is only which of it applies where.
+type InstalledArtifact struct {
+	// Kind is the artifact kind — the same names a boot tree uses.
+	Kind string
+
+	// Label is the artifact's path relative to [InstalledLayout.Dir]. It is
+	// what a diagnostic quotes and what the sweep plan joins onto the
+	// directory.
+	Label string
+
+	// Dest is the spec.templates destination this artifact renders from, empty
+	// for the artifacts that render from none.
+	Dest string
+
+	// Render names the implementation that produces this artifact, for the
+	// kinds where there is more than one. Empty means the implementation
+	// registered under Kind.
+	Render string
+
+	// Merge, Normalize, Claim and Fills are the names of the behaviours this
+	// artifact is rendered and compared through, empty for none.
+	Merge     string
+	Normalize string
+	Claim     string
+	Fills     string
 }
 
 // LayoutFor returns the [Layout] one provider's boot directory is rendered
 // through.
 //
-// Claude Code and Codex are implemented. opencode reports
+// A provider cairn holds no layout document for reports
 // [ErrUnsupportedProvider] rather than falling back to a layout that would
 // write another harness's files, and so does a profile that declares no
 // provider at all.
@@ -180,92 +262,24 @@ type Layout struct {
 // the reader of this diagnostic was looking at the file that said it; now it
 // is something an operator can ask for at the terminal, and the answer to
 // "codex, then" is worth one clause rather than a lookup. What it must never
-// be is a fallback: [profile.Providers] knows three names and cairn renders
-// one of them, and a target silently redirected to claude's layout would put
-// claude's files at claude's paths for a harness that reads neither.
+// be is a fallback: [profile.Providers] knows three names and cairn holds
+// trees for two of them, and a target silently redirected to claude's tree
+// would put claude's files at claude's paths for a harness that reads neither.
 func LayoutFor(p profile.Provider) (Layout, error) {
-	switch p {
-	case profile.ProviderClaude:
-		return claudeLayout()
-	case profile.ProviderCodex:
-		return codexLayout()
-	case "":
-		return Layout{}, fmt.Errorf("%w: the resolved profile declares no provider", ErrUnsupportedProvider)
-	default:
-		return Layout{}, fmt.Errorf("%w: %q — cairn renders boot directories for %q and %q",
-			ErrUnsupportedProvider, p, profile.ProviderClaude, profile.ProviderCodex)
-	}
-}
-
-// claudeLayout derives the Claude Code layout from that adapter's BootDirSpec.
-func claudeLayout() (Layout, error) {
-	spec := goprovider.NewClaudeAdapter().BootDirSpec()
-	declared, err := artifacts(spec, PointerFileName, ".mcp.json", ".claude/settings.json")
+	doc, err := layoutFor(p)
 	if err != nil {
-		return Layout{}, fmt.Errorf("claude: %w", err)
+		return Layout{}, err
 	}
-	return Layout{
-		Provider:      profile.ProviderClaude,
-		Agents:        Artifact{RelPath: AgentsFileName},
-		Pointer:       declared[PointerFileName],
-		MCP:           declared[".mcp.json"],
-		Settings:      declared[".claude/settings.json"],
-		SkillsDir:     SkillsDirName,
-		SubagentsDir:  SubagentsDirName,
-		PromptsDir:    PromptsDirName,
-		CwdPreference: spec.CwdPreference,
-		ProjectDirArg: spec.ProjectDirArg,
-	}, nil
+	return doc.bootLayout()
 }
 
-// codexLayout derives the Codex layout from that adapter's BootDirSpec, but
-// names only the artifacts Codex actually needs Cairn to render. The adapter
-// also lists auth.json and a legacy .mcp.json sidecar; Cairn deliberately does
-// not copy live auth into disposable boot directories or plant an inert MCP
-// sidecar for Codex.
-func codexLayout() (Layout, error) {
-	spec := goprovider.NewCodexAdapter().BootDirSpec()
-	declared, err := artifacts(spec, AgentsFileName, CodexConfigFileName)
+// InstalledLayoutFor returns the [InstalledLayout] one provider's installed
+// layer is rendered through, reporting [ErrUnsupportedProvider] for a harness
+// cairn holds no tree for.
+func InstalledLayoutFor(p profile.Provider) (InstalledLayout, error) {
+	doc, err := layoutFor(p)
 	if err != nil {
-		return Layout{}, fmt.Errorf("codex: %w", err)
+		return InstalledLayout{}, err
 	}
-	return Layout{
-		Provider:      profile.ProviderCodex,
-		Agents:        declared[AgentsFileName],
-		Settings:      declared[CodexConfigFileName],
-		SkillsDir:     CodexSkillsDirName,
-		CwdPreference: spec.CwdPreference,
-		ProjectDirArg: "--add-dir {{.ProjectDir}}",
-		EnvAmendments: append([]string(nil), spec.EnvAmendments...),
-		HomeResourcePaths: []string{
-			"auth.json",
-			"hooks.json",
-			"hooks",
-		},
-	}, nil
-}
-
-// artifacts looks each wanted path up in spec's planted files and returns them
-// carrying the mode the spec declares. A path the spec no longer declares
-// reports [ErrProviderLayout]: the harness has moved the file, and writing to
-// the old path would leave a boot directory that looks complete and is not.
-//
-// The spec's PlantedFile.Render functions are deliberately never invoked. At
-// least one of them writes to the operator's real home directory when handed a
-// boot directory, and Cairn renders its own content for every path here
-// anyway.
-func artifacts(spec goprovider.BootDirSpec, want ...string) (map[string]Artifact, error) {
-	byPath := make(map[string]goprovider.PlantedFile, len(spec.PlantedFiles))
-	for _, pf := range spec.PlantedFiles {
-		byPath[pf.RelPath] = pf
-	}
-	out := make(map[string]Artifact, len(want))
-	for _, rel := range want {
-		pf, ok := byPath[rel]
-		if !ok {
-			return nil, fmt.Errorf("%w: %q is not in its BootDirSpec", ErrProviderLayout, rel)
-		}
-		out[rel] = Artifact{RelPath: pf.RelPath, Mode: pf.Mode}
-	}
-	return out, nil
+	return doc.installedLayout()
 }

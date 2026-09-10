@@ -82,8 +82,8 @@ func newCheckFixtureDeclaring(t *testing.T, settings map[string]any, skills ...s
 		// Resolved template text and instance values, as the composition root
 		// supplies them.
 		Templates: map[string]string{
-			bootdir.AgentsFileName:  "# <!-- cairn:value profile -->\n\nRead the profile.\n",
-			bootdir.PointerFileName: "@" + bootdir.AgentsFileName + "\n",
+			"AGENTS.md": "# <!-- cairn:value profile -->\n\nRead the profile.\n",
+			"CLAUDE.md": "@" + "AGENTS.md" + "\n",
 		},
 		Values: map[string]string{"profile": "base"},
 	}
@@ -395,7 +395,7 @@ func TestCodexInstallPreservesUnrelatedConfigAuthPluginsAndSkills(t *testing.T) 
 				"skills_dir": source,
 			}),
 		},
-		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+		Templates: map[string]string{"AGENTS.md": "# base\n"},
 	}
 
 	writeInRoot(t, rootDir, ".codex/config.toml", `service_tier = "priority"
@@ -462,7 +462,7 @@ func TestCodexInstallRefusesMalformedExistingConfig(t *testing.T) {
 				"settings": map[string]any{"codex": map[string]any{"model": "gpt-5"}},
 			}),
 		},
-		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+		Templates: map[string]string{"AGENTS.md": "# base\n"},
 	}
 
 	configPath := writeInRoot(t, rootDir, ".codex/config.toml", `model = "user-owned"
@@ -494,7 +494,7 @@ func TestCheckReportsMalformedExistingCodexConfig(t *testing.T) {
 				"settings": map[string]any{"codex": map[string]any{"model": "gpt-5"}},
 			}),
 		},
-		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+		Templates: map[string]string{"AGENTS.md": "# base\n"},
 	}
 	writeInRoot(t, rootDir, ".codex/config.toml", "model = [\n")
 
@@ -527,7 +527,7 @@ func TestCheckLeavesExistingCodexConfigUnclaimedWhenTheProfileRendersNone(t *tes
 				"templates": map[string]any{"AGENTS.md": "codex base"},
 			}),
 		},
-		Templates: map[string]string{bootdir.AgentsFileName: "# base\n"},
+		Templates: map[string]string{"AGENTS.md": "# base\n"},
 	}
 
 	if _, err := install.Install(lay); err != nil {
@@ -1119,7 +1119,7 @@ func TestCheckIsStableForAProfileWhoseSlotsReadLiveState(t *testing.T) {
 		{"name":"prose","source":{"kind":"inline","inline":{"content":"shared prose"}}},
 		{"name":"now","source":{"kind":"cmd","cmd":{"run":"` + counter + `"}}}
 	]`)
-	fixture.lay.Templates[bootdir.AgentsFileName] =
+	fixture.lay.Templates["AGENTS.md"] =
 		"<!-- cairn:slot prose -->\n\n<!-- cairn:slot now -->\n"
 
 	assembled, err := slots.Assemble(context.Background(), fixture.lay.Profile.Spec,

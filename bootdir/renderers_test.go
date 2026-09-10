@@ -37,9 +37,9 @@ func contractInstance(t *testing.T) *Instance {
 		},
 		profile.SpecKeySubagents: []string{"scribe"},
 		profile.SpecKeyTemplates: map[string]any{
-			AgentsFileName:  "declared elsewhere and resolved onto the instance",
-			PointerFileName: "so is this",
-			"boot.md":       "and this",
+			"AGENTS.md": "declared elsewhere and resolved onto the instance",
+			"CLAUDE.md": "so is this",
+			"boot.md":   "and this",
 		},
 		"a key nothing renders": "carried and ignored",
 	})
@@ -61,9 +61,9 @@ func contractInstance(t *testing.T) *Instance {
 	// do, and carry the markers the renderer substitutes. Nothing here is a
 	// file cairn named: every destination came out of the manifest.
 	inst.Templates = map[string]string{
-		AgentsFileName:  "# <!-- cairn:value profile -->\n\n<!-- cairn:slot repo -->\n",
-		PointerFileName: "@" + AgentsFileName + "\n",
-		"boot.md":       "<!-- cairn:slot repo -->\n",
+		"AGENTS.md": "# <!-- cairn:value profile -->\n\n<!-- cairn:slot repo -->\n",
+		"CLAUDE.md": "@" + "AGENTS.md" + "\n",
+		"boot.md":   "<!-- cairn:slot repo -->\n",
 	}
 	inst.Sections = map[string]string{"repo": "## repo\n\nthe assembled slot content"}
 	inst.Values = map[string]string{"profile": "reviewer", "scope": "/Users/chrispian/dev/projects/cairn"}
@@ -113,12 +113,12 @@ func TestRenderProducesTheOutputContract(t *testing.T) {
 			t.Errorf("%s was rendered with no bytes", f.Path)
 		}
 	}
-	if got, want := string(fileByPath(t, files, PointerFileName).Content), "@"+AgentsFileName+"\n"; got != want {
+	if got, want := string(fileByPath(t, files, "CLAUDE.md").Content), "@"+"AGENTS.md"+"\n"; got != want {
 		t.Errorf("the pointer holds %q, want the template's own text %q", got, want)
 	}
 	// The instruction file is a template like any other: a value marker became
 	// the profile id and a slot marker became that slot's whole section.
-	if got, want := string(fileByPath(t, files, AgentsFileName).Content),
+	if got, want := string(fileByPath(t, files, "AGENTS.md").Content),
 		"# reviewer\n\n## repo\n\nthe assembled slot content\n"; got != want {
 		t.Errorf("the instruction file holds\n%q\nwant\n%q", got, want)
 	}
@@ -196,7 +196,11 @@ func TestRenderRefusesTwoFilesAtOnePath(t *testing.T) {
 // so a diagnostic naming an artifact names one renderer.
 func TestRenderersAreRegisteredOnce(t *testing.T) {
 	seen := make(map[string]struct{})
-	for i, renderer := range Renderers() {
+	renderers, err := Renderers(testLayout(t))
+	if err != nil {
+		t.Fatalf("Renderers(): %v", err)
+	}
+	for i, renderer := range renderers {
 		if renderer.Render == nil {
 			t.Errorf("the renderer at index %d has no render function", i)
 		}
@@ -222,7 +226,11 @@ func TestRenderNeedsAResolvedProfile(t *testing.T) {
 	if _, err := Render(&Instance{Layout: testLayout(t)}); !errors.Is(err, ErrNoProfile) {
 		t.Errorf("Render() with no profile returned error %v, want ErrNoProfile", err)
 	}
-	for _, renderer := range Renderers() {
+	renderers, err := Renderers(testLayout(t))
+	if err != nil {
+		t.Fatalf("Renderers(): %v", err)
+	}
+	for _, renderer := range renderers {
 		if _, err := renderer.Render(&Instance{}); !errors.Is(err, ErrNoProfile) {
 			t.Errorf("%s rendered from no profile and returned error %v, want ErrNoProfile",
 				renderer.Artifact, err)
@@ -278,7 +286,7 @@ func TestCodexRenderProducesNativeInstructionConfigAndSkills(t *testing.T) {
 	if got := filePaths(files); !slices.Equal(got, want) {
 		t.Fatalf("Render codex produced\n%v\nwant\n%v", got, want)
 	}
-	config := string(fileByPath(t, files, CodexConfigFileName).Content)
+	config := string(fileByPath(t, files, "config.toml").Content)
 	for _, want := range []string{`model = 'gpt-5'`, `[mcp_servers]`, `[sandbox_workspace_write]`} {
 		if !strings.Contains(config, want) {
 			t.Errorf("config.toml missing %q:\n%s", want, config)
@@ -291,6 +299,11 @@ func TestCodexRenderProducesNativeInstructionConfigAndSkills(t *testing.T) {
 	}
 }
 
+// TestCodexRenderReportsUnsupportedClaudeOnlyFeatures pins the refusal that
+// used to be a second code path. The Codex tree lists `prompts` and
+// `subagents` under renders and declares no directory for either, so the same
+// renderers Claude Code uses report that this tree has nowhere to put what the
+// manifest declared — rather than a shim per provider per feature.
 func TestCodexRenderReportsUnsupportedClaudeOnlyFeatures(t *testing.T) {
 	t.Run("prompts", func(t *testing.T) {
 		inst := contractInstance(t)
@@ -303,8 +316,8 @@ func TestCodexRenderReportsUnsupportedClaudeOnlyFeatures(t *testing.T) {
 		inst.Profile.Spec[profile.SpecKeyPrompts] = json.RawMessage(`["report"]`)
 
 		_, err = Render(inst)
-		if !errors.Is(err, ErrUnsupportedFeature) {
-			t.Fatalf("Render codex with prompts = %v, want ErrUnsupportedFeature", err)
+		if !errors.Is(err, ErrProviderLayout) {
+			t.Fatalf("Render codex with prompts = %v, want ErrProviderLayout", err)
 		}
 		if !strings.Contains(err.Error(), profile.SpecKeyPrompts) {
 			t.Errorf("the error does not name prompts: %v", err)
@@ -320,8 +333,8 @@ func TestCodexRenderReportsUnsupportedClaudeOnlyFeatures(t *testing.T) {
 		inst.Layout = layout
 
 		_, err = Render(inst)
-		if !errors.Is(err, ErrUnsupportedFeature) {
-			t.Fatalf("Render codex with subagents = %v, want ErrUnsupportedFeature", err)
+		if !errors.Is(err, ErrProviderLayout) {
+			t.Fatalf("Render codex with subagents = %v, want ErrProviderLayout", err)
 		}
 		if !strings.Contains(err.Error(), profile.SpecKeySubagents) {
 			t.Errorf("the error does not name subagents: %v", err)

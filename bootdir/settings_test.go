@@ -587,14 +587,14 @@ func TestCodexConfigRendersSettingsAccessAndMCP(t *testing.T) {
 	}
 	inst.Layout = layout
 
-	files, err := RenderSettings(inst)
+	files, err := RenderCodexConfig(inst)
 	if err != nil {
-		t.Fatalf("RenderSettings codex: %v", err)
+		t.Fatalf("RenderCodexConfig: %v", err)
 	}
 	if len(files) != 1 {
-		t.Fatalf("RenderSettings wrote %v, want one file", filePaths(files))
+		t.Fatalf("RenderCodexConfig wrote %v, want one file", filePaths(files))
 	}
-	if files[0].Path != CodexConfigFileName {
+	if files[0].Path != "config.toml" {
 		t.Errorf("path = %q, want config.toml", files[0].Path)
 	}
 	content := string(files[0].Content)
@@ -632,9 +632,9 @@ func TestCodexConfigRefusesGeneratedKeyCollisions(t *testing.T) {
 		}
 		inst.Layout = layout
 
-		_, err = RenderSettings(inst)
+		_, err = RenderCodexConfig(inst)
 		if !errors.Is(err, ErrConfigConflict) {
-			t.Errorf("RenderSettings codex with %s = %v, want ErrConfigConflict", document, err)
+			t.Errorf("RenderCodexConfig with %s = %v, want ErrConfigConflict", document, err)
 		}
 	}
 }

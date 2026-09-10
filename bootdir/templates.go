@@ -39,7 +39,11 @@ func renderTemplates(inst *Instance) ([]File, error) {
 
 	files := make([]File, 0, len(rels))
 	for _, rel := range rels {
-		if rel == PointerFileName && !inst.Layout.Pointer.Declared() {
+		// A destination this tree has no reader for renders nothing. Which
+		// destinations those are is the tree's to say — cairn does not know
+		// what any of these files is, only that one harness's document lists
+		// it and another's does not.
+		if inst.Layout.Drops(rel) {
 			continue
 		}
 		// An empty path is the one case [Render] cannot report usefully: its
@@ -96,8 +100,8 @@ func templateFile(inst *Instance, dest string, artifact Artifact) ([]File, error
 }
 
 // RenderAgentsTemplate returns the instruction file the installed layer
-// renders: the manifest's template for [AgentsFileName], written at the path
-// this layout reads it from.
+// renders: the manifest's template for the destination this layout's agents
+// artifact names, written at the path it reads it from.
 //
 // It exists because the installed layer claims a fixed set of paths and the
 // boot directory does not. `install --check` derives what it may report on
@@ -111,14 +115,15 @@ func RenderAgentsTemplate(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
-	return templateFile(inst, AgentsFileName, inst.Layout.Agents)
+	return templateFile(inst, inst.Layout.Agents.Dest, inst.Layout.Agents)
 }
 
 // RenderPointerTemplate returns the harness's own instruction file for the
-// installed layer, from the manifest's template for [PointerFileName].
+// installed layer, from the manifest's template for the destination this
+// layout's pointer artifact names.
 //
 // The pointer is a template like everything else. It used to be one line cairn
-// wrote — an include of [AgentsFileName] — which was safe only while that file
+// wrote — an include of the instruction file — which was safe only while that
 // was always rendered. Under templates it need not be, and a hardcoded include
 // of a file that is not there resolves to nothing with no diagnostic at all:
 // the harness reads the pointer, finds no such import, and carries on. A
@@ -127,5 +132,5 @@ func RenderPointerTemplate(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
-	return templateFile(inst, PointerFileName, inst.Layout.Pointer)
+	return templateFile(inst, inst.Layout.Pointer.Dest, inst.Layout.Pointer)
 }

@@ -3,7 +3,6 @@ package install
 import (
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/chrispian/cairn/bootdir"
@@ -24,8 +23,9 @@ var ErrUnexpectedArtifact = errors.New("rendered artifact is outside the provide
 // the artifacts it holds, and the layout naming their paths.
 //
 // It is one value rather than three lookups so that the directory and the
-// paths in the layout cannot be answered from different switch statements and
-// disagree.
+// paths in the layout cannot be answered from different places and disagree.
+// All three come from that harness's layout document, which is what makes the
+// disagreement impossible rather than merely unlikely.
 type harness struct {
 	// dir is the provider directory relative to the install root.
 	dir string
@@ -39,23 +39,20 @@ type harness struct {
 
 // harnessFor returns the installed layer of one provider.
 //
-// Claude Code and Codex are implemented. opencode, and a profile declaring no
+// A provider cairn holds no layout document for, and a profile declaring no
 // provider at all, report [bootdir.ErrUnsupportedProvider] rather than falling
 // back to a layout that would write one harness's files into another's
 // directory.
 func harnessFor(p profile.Provider) (harness, error) {
-	switch p {
-	case profile.ProviderClaude:
-		return harness{dir: ClaudeDirName, renderers: ClaudeRenderers(), layout: ClaudeLayout()}, nil
-	case profile.ProviderCodex:
-		return harness{dir: ".", renderers: CodexRenderers(), layout: CodexLayout()}, nil
-	case "":
-		return harness{}, fmt.Errorf("%w: the resolved profile declares no provider",
-			bootdir.ErrUnsupportedProvider)
-	default:
-		return harness{}, fmt.Errorf("%w: %q — cairn renders installed layers for %q and %q",
-			bootdir.ErrUnsupportedProvider, p, profile.ProviderClaude, profile.ProviderCodex)
+	il, err := bootdir.InstalledLayoutFor(p)
+	if err != nil {
+		return harness{}, err
 	}
+	renderers, err := installRenderers(il)
+	if err != nil {
+		return harness{}, err
+	}
+	return harness{dir: il.Dir, renderers: renderers, layout: il.Layout}, nil
 }
 
 // PlanterFor returns the renderers and layout for a provider, in render order,
@@ -178,15 +175,17 @@ func layerInstance(lay *Layer, layout bootdir.Layout) *bootdir.Instance {
 // [bootdir.RenderWith] runs, wrapping the instruction file's so that it opens
 // with the generated-file marker.
 //
-// The instruction file is matched by its artifact name rather than by its
-// suffix. A later markdown artifact should not acquire a marker because it
-// happens to end in ".md" and nobody noticed: whether a file carries one is a
-// decision, and this is where it is written down.
+// The instruction file is matched by its artifact kind rather than by its
+// name or its suffix. A later markdown artifact should not acquire a marker
+// because it happens to end in ".md" and nobody noticed, and a tree that
+// renamed its instruction file should not lose the marker with it: whether a
+// file carries one is a decision about what the file is, and this is where it
+// is written down.
 func bootRenderers(renderers []Renderer, profileID string) []bootdir.Renderer {
 	out := make([]bootdir.Renderer, 0, len(renderers))
 	for _, r := range renderers {
 		render := r.Render
-		if path.Base(r.Artifact) == bootdir.AgentsFileName {
+		if r.Kind == bootdir.KindAgents {
 			render = markGenerated(render, profileID)
 		}
 		out = append(out, bootdir.Renderer{Artifact: r.Artifact, Render: render})

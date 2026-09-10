@@ -16,7 +16,19 @@ import (
 // and Cairn's provider mapping try to write.
 var ErrConfigConflict = errors.New("codex config key collision")
 
-func renderCodexConfig(inst *Instance) ([]File, error) {
+// RenderCodexConfig renders the settings document as Codex's config.toml.
+//
+// It is a second settings renderer rather than a branch inside the first, and
+// which one runs is the tree's to say: a layout document names it under
+// `renderers` for the settings key, and cairn holds no rule that a codex
+// layout gets TOML. What differs between the two is the document's shape —
+// TOML rather than JSON, MCP servers as keys rather than a file beside it, and
+// a different key for the directories cairn grants — and that is content, not
+// placement, which is why it is a whole renderer and not a path.
+func RenderCodexConfig(inst *Instance) ([]File, error) {
+	if inst == nil || inst.Profile == nil {
+		return nil, ErrNoProfile
+	}
 	stored, declared, err := inst.Profile.Spec.Settings(inst.Layout.Provider)
 	if err != nil {
 		return nil, err

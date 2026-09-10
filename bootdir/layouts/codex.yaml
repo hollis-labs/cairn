@@ -1,0 +1,93 @@
+# The Codex tree.
+#
+# Read claude.yaml first: it carries the field-by-field account of what a
+# layout document is. What is worth reading here is the difference, because the
+# difference is the whole argument for these being documents. Codex is not a
+# second code path in cairn — it is this file.
+#
+# Three ways it differs from Claude Code, none of which cairn knows in Go:
+#
+#   * It reads AGENTS.md directly, so there is no pointer artifact and a
+#     profile's CLAUDE.md template is dropped rather than planted for a harness
+#     that never opens it.
+#   * The settings document is TOML with different keys, and MCP servers are
+#     not a file at all — they are keys of it. So this tree names a different
+#     renderer for the settings key, and leaves `mcp` out of `renders`: absent
+#     because it is materialized elsewhere, not because it is unsupported.
+#   * Skills are not read from the config directory. User skills live under
+#     ~/.agents/skills and repository skills under .agents/skills, which is why
+#     the installed layer's `dir` is the root rather than a provider directory.
+#
+# `prompts` and `subagents` stay in `renders` with no directory declared. That
+# is the refusal: a profile that declares either gets a diagnostic naming what
+# it declared and which layout has nowhere to put it, rather than a boot
+# directory silently missing them.
+
+provider: codex
+
+boot:
+  renders: [templates, settings, skills, prompts, subagents, trees, files]
+
+  # Which implementation renders a key, where cairn has more than one. The key
+  # stays the label a diagnostic quotes, so "render settings:" reads the same
+  # either way; what changes is the document that comes out.
+  renderers:
+    settings: codex-config
+
+  artifacts:
+    - kind: agents
+      dest: AGENTS.md
+      provider_path: AGENTS.md
+    - kind: settings
+      provider_path: config.toml
+
+  directories:
+    skills: .agents/skills
+
+  templates:
+    # spec.templates destinations this tree has no reader for. A profile that
+    # declares one renders nothing rather than planting a file the harness
+    # never opens.
+    #
+    # This is the opinion moving to the tree. Cairn does not know what
+    # CLAUDE.md is; this file does.
+    drop: [CLAUDE.md]
+
+  # The adapter's own BootDirSpec declares an exec-only pattern here. Cairn
+  # does not launch anything, and this is what a launcher printing the boot
+  # directory would print beside it, so it names the interactive flag.
+  project_dir_arg: "--add-dir {{.ProjectDir}}"
+
+  # Codex is pointed at a boot directory by amending its environment rather
+  # than by a flag, so the amendments come from the adapter that owns them.
+  env_amendments_from_provider: true
+
+  # Provider-home-relative resources cairn does not render, but a launcher must
+  # deliberately provide once the amendments above make the boot directory the
+  # harness's home. Cairn deliberately does not copy live auth into a
+  # disposable directory; it says what is missing and stops there.
+  home_resources: [auth.json, hooks.json, hooks]
+
+installed:
+  # The install root itself, not a provider directory: Codex reads its global
+  # instruction and configuration files from ~/.codex and its user skills from
+  # ~/.agents/skills, so the labels below are root-relative and the containment
+  # boundary is the root.
+  dir: "."
+
+  artifacts:
+    - kind: agents
+      dest: AGENTS.md
+      artifact: .codex/AGENTS.md
+    - kind: settings
+      artifact: .codex/config.toml
+      render: codex-config
+      # config.toml carries auth-adjacent keys, so it is written no wider than
+      # the operator.
+      mode: "0600"
+      merge: toml-document
+      normalize: toml-document
+      claim: codex-config
+    - kind: skills
+      artifact: .agents/skills
+      fills: install-skills

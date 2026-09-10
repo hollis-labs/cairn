@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chrispian/cairn/bootdir"
 	"github.com/chrispian/cairn/catalog"
 	"github.com/chrispian/cairn/profile"
 	"github.com/hollis-labs/agentkit/agentcontext"
@@ -50,8 +49,15 @@ const (
 	// The same sentence as --skill, because it is the same rule over the same
 	// kind of collection. What differs is what a prompt is: content a person
 	// invokes by name, planted as a command rather than loaded by the harness.
+	//
+	// The namespace is written out rather than taken from a layout: a flag's
+	// help is one string and there are as many namespaces as there are trees.
+	// It is Claude Code's, which is the only harness that plants prompts at
+	// all — and TestPromptFlagUsageMatchesTheLayout holds the two together, so
+	// a tree that renamed its prompts directory fails here rather than lying
+	// to an operator.
 	promptFlagUsage = "a prompt the boot directory carries, added to the ones the profile " +
-		"resolves to and planted as /" + bootdir.PromptNamespace + ":<name>. Comma-separated and " +
+		"resolves to and planted as /boot:<name>. Comma-separated and " +
 		"repeatable, the two forms equivalent and composing. Additive only, for the reason " +
 		"--skill is"
 

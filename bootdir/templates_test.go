@@ -171,15 +171,19 @@ func TestTemplatesArriveResolvedRatherThanFromTheManifest(t *testing.T) {
 // renders two destinations at paths of its own and ignores the rest.
 func TestTheInstalledLayerRendersTwoDestinations(t *testing.T) {
 	inst := templateInstance(t, map[string]string{
-		AgentsFileName:  "the instruction file\n",
-		PointerFileName: "@" + AgentsFileName + "\n",
-		"boot.md":       "a boot-directory destination\n",
-		"notes/x.md":    "another one\n",
+		"AGENTS.md":  "the instruction file\n",
+		"CLAUDE.md":  "@" + "AGENTS.md" + "\n",
+		"boot.md":    "a boot-directory destination\n",
+		"notes/x.md": "another one\n",
 	})
+	// The destination each artifact renders from is the tree's to name, so a
+	// layout carries it beside the path it lands at. Cairn does not know that
+	// an instruction file is called AGENTS.md; this fixture is standing in for
+	// the document that says so.
 	inst.Layout = Layout{
 		Provider: profile.ProviderClaude,
-		Agents:   Artifact{RelPath: ".claude/" + AgentsFileName},
-		Pointer:  Artifact{RelPath: ".claude/" + PointerFileName},
+		Agents:   Artifact{Dest: "AGENTS.md", RelPath: ".claude/AGENTS.md"},
+		Pointer:  Artifact{Dest: "CLAUDE.md", RelPath: ".claude/CLAUDE.md"},
 	}
 
 	agents, err := RenderAgentsTemplate(inst)
@@ -198,13 +202,18 @@ func TestTheInstalledLayerRendersTwoDestinations(t *testing.T) {
 	}
 }
 
-// TestTheInstalledLayerRendersNothingForADestinationItHasNoPathFor covers a
-// layout that stopped declaring a path for an artifact a profile declares.
-// Reporting it is the rule for every other artifact — content declared with
-// nowhere to put it is a render that would look complete and not be.
+// TestTheInstalledLayerRefusesADestinationItHasNoPathFor covers a layout that
+// names a destination and no path to put it at. Reporting it is the rule for
+// every other artifact — content declared with nowhere to put it is a render
+// that would look complete and not be.
+//
+// A tree that lists no agents artifact at all is a different case and not a
+// fault: nothing registers the renderer, so nothing is rendered, the same way
+// the Codex tree carries no pointer. What a document cannot do is declare the
+// artifact and leave it without a path, because parsing refuses that outright.
 func TestTheInstalledLayerRefusesADestinationItHasNoPathFor(t *testing.T) {
-	inst := templateInstance(t, map[string]string{AgentsFileName: "declared\n"})
-	inst.Layout = Layout{Provider: profile.ProviderClaude}
+	inst := templateInstance(t, map[string]string{"AGENTS.md": "declared\n"})
+	inst.Layout = Layout{Provider: profile.ProviderClaude, Agents: Artifact{Dest: "AGENTS.md"}}
 
 	if _, err := RenderAgentsTemplate(inst); !errors.Is(err, ErrProviderLayout) {
 		t.Fatalf("RenderAgentsTemplate() = %v, want ErrProviderLayout", err)

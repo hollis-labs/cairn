@@ -1,0 +1,89 @@
+# The Claude Code tree.
+#
+# This document is a layout: where one harness reads each artifact from, in the
+# two layers cairn plants — a disposable boot directory, and the installed
+# layer under the operator's home. It is data rather than Go so that a second
+# harness is a second tree instead of a second code path, and so that the names
+# in it belong to whoever authored the tree rather than to cairn.
+#
+# Nothing here is a name cairn insists on. A profile that declares no template
+# for AGENTS.md renders no AGENTS.md; this file only says where one would land
+# if it did.
+#
+# An artifact states its path one of two ways:
+#
+#   path:           cairn's own convention. Nothing outside this file says it.
+#   provider_path:  go-providers' BootDirSpec owns the convention, and the path
+#                   and mode are taken from there. A spec that has stopped
+#                   declaring it is an error rather than a fallback, because
+#                   writing to the old path leaves a directory that looks
+#                   complete and is not — see bootdir.ErrProviderLayout.
+#
+# `dest` is the spec.templates destination the artifact renders from, for the
+# layers that map a destination onto a path of their own.
+
+provider: claude
+
+boot:
+  # The renderers this tree carries, in render order. Order is what a
+  # diagnostic reports in, so the templates come first: a profile with a broken
+  # marker should fail on the marker and not on a skill. Each name is one
+  # manifest key.
+  renders: [templates, mcp, settings, skills, prompts, subagents, trees, files]
+
+  artifacts:
+    - kind: agents
+      dest: AGENTS.md
+      path: AGENTS.md
+    - kind: pointer
+      dest: CLAUDE.md
+      provider_path: CLAUDE.md
+    - kind: mcp
+      provider_path: .mcp.json
+    - kind: settings
+      provider_path: .claude/settings.json
+
+  directories:
+    # None of these three is in any BootDirSpec. They are Claude Code's on-disk
+    # conventions, one directory per skill, one file per subagent, one file per
+    # prompt.
+    skills: .claude/skills
+    subagents: .claude/agents
+    prompts: .claude/commands/boot
+
+  # The prefix a planted prompt is invoked by: `/boot:<name>`. A subdirectory
+  # of the commands directory genuinely namespaces the command rather than
+  # flattening it — verified against the harness, with the bare name answering
+  # "Unknown command" as the control — so a prompt cairn planted is addressed
+  # as cairn's and can never collide with one the operator wrote beside it.
+  #
+  # It is the last segment of `directories.prompts` and is stated rather than
+  # derived, because the two are one fact and a reader of either should find it.
+  prompt_namespace: boot
+
+installed:
+  # The directory, relative to the install root, everything below is written
+  # into. It is also the containment boundary: a renderer that produced a path
+  # outside it fails the render rather than relocating a file inside the one
+  # layer that is not disposable.
+  dir: .claude
+
+  # In render order, which for this layer is also the order the written files
+  # are reported in. `artifact` is the label relative to `dir`; `merge`,
+  # `normalize`, `claim` and `fills` name logic that stays in Go — an installed
+  # artifact that claims only part of the file it lands in is real logic, not a
+  # template, and this only says which one applies.
+  artifacts:
+    - kind: agents
+      dest: AGENTS.md
+      artifact: AGENTS.md
+    - kind: pointer
+      dest: CLAUDE.md
+      artifact: CLAUDE.md
+    - kind: settings
+      artifact: settings.json
+      merge: json-settings
+      normalize: json-indent
+    - kind: skills
+      artifact: skills
+      fills: install-skills

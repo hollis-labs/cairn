@@ -355,7 +355,7 @@ func TestSkillsExpandALeadingTilde(t *testing.T) {
 		t.Fatalf("RenderSkills() with a home-relative skills_dir: %v", err)
 	}
 	if got := filePaths(files); !slices.Equal(got, []string{".claude/skills/code-review/SKILL.md"}) {
-		t.Errorf("rendered %v, want the one skill under %s", got, SkillsDirName)
+		t.Errorf("rendered %v, want the one skill under %s", got, ".claude/skills")
 	}
 
 	// With no home on the instance there is nothing to expand against, and the
