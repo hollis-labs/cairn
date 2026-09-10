@@ -96,8 +96,8 @@ func TestResolveSingleProfile(t *testing.T) {
 	if got.Provider != ProviderClaude || got.Model != "opus" {
 		t.Errorf("Provider/Model = %q/%q", got.Provider, got.Model)
 	}
-	if got.Body != "the body" {
-		t.Errorf("Body = %q, want %q", got.Body, "the body")
+	if len(got.Bodies) != 1 || got.Bodies[0].ID != "solo" || got.Bodies[0].Text != "the body" {
+		t.Errorf("Bodies = %+v, want one body of solo's", got.Bodies)
 	}
 	if string(got.Spec["skills"]) != `["review"]` {
 		t.Errorf("Spec[skills] = %s", got.Spec["skills"])
@@ -309,53 +309,64 @@ func TestResolveSpecIsNeverNil(t *testing.T) {
 	}
 }
 
-func TestResolveBodyConcatenatesAncestorFirst(t *testing.T) {
+// TestResolveBodiesCarryTheChainInFoldOrder pins that a body is carried
+// rather than composed: every declared body arrives in fold order, tagged with
+// the profile that wrote it, and nothing here decides what composing them
+// means.
+//
+// It replaces a test that pinned a concatenation. The concatenation was real
+// and was never rendered by anything — see profile.Resolved.Bodies — so what
+// it pinned was the shape of a value cairn computed and dropped. Composing
+// bodies is the render engine's, and it composes them by section rather than
+// by joining them: see package template.
+func TestResolveBodiesCarryTheChainInFoldOrder(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
 		bodies []string // root first
-		want   string
+		want   []Body   // fold order
 	}{
 		{
-			name:   "ancestor first, blank line between",
+			name:   "ancestor first",
 			bodies: []string{"root body", "mid body", "leaf body"},
-			want:   "root body\n\nmid body\n\nleaf body",
+			want: []Body{
+				{ID: "p0", Text: "root body"},
+				{ID: "p1", Text: "mid body"},
+				{ID: "p2", Text: "leaf body"},
+			},
 		},
 		{
-			name:   "an empty body in the middle does not double the separator",
+			name:   "a profile that declared none contributes nothing",
 			bodies: []string{"root body", "", "leaf body"},
-			want:   "root body\n\nleaf body",
+			want:   []Body{{ID: "p0", Text: "root body"}, {ID: "p2", Text: "leaf body"}},
 		},
 		{
-			name:   "a whitespace-only body counts as empty",
+			name:   "a whitespace-only body counts as none",
 			bodies: []string{"root body", "  \n\t ", "leaf body"},
-			want:   "root body\n\nleaf body",
+			want:   []Body{{ID: "p0", Text: "root body"}, {ID: "p2", Text: "leaf body"}},
 		},
 		{
-			name:   "an empty root",
-			bodies: []string{"", "mid body", "leaf body"},
-			want:   "mid body\n\nleaf body",
-		},
-		{
-			name:   "an empty leaf",
-			bodies: []string{"root body", "mid body", ""},
-			want:   "root body\n\nmid body",
-		},
-		{
-			name:   "an all-empty chain",
+			name:   "an all-empty chain carries no body at all",
 			bodies: []string{"", "", ""},
-			want:   "",
+			want:   nil,
 		},
 		{
-			name:   "surrounding blank lines are normalised away",
+			name:   "surrounding blank lines are the file's formatting",
 			bodies: []string{"\n\nroot body\n\n\n", "\nmid body\n", "leaf body\n"},
-			want:   "root body\n\nmid body\n\nleaf body",
+			want: []Body{
+				{ID: "p0", Text: "root body"},
+				{ID: "p1", Text: "mid body"},
+				{ID: "p2", Text: "leaf body"},
+			},
 		},
 		{
-			name:   "blank lines inside a body are preserved",
+			name:   "blank lines inside a body are the author's content",
 			bodies: []string{"root para\n\nroot para two", "leaf body"},
-			want:   "root para\n\nroot para two\n\nleaf body",
+			want: []Body{
+				{ID: "p0", Text: "root para\n\nroot para two"},
+				{ID: "p1", Text: "leaf body"},
+			},
 		},
 	}
 
@@ -374,8 +385,8 @@ func TestResolveBodyConcatenatesAncestorFirst(t *testing.T) {
 
 			got := resolveOK(t, l, leaf)
 
-			if got.Body != tc.want {
-				t.Errorf("Body = %q, want %q", got.Body, tc.want)
+			if !slices.Equal(got.Bodies, tc.want) {
+				t.Errorf("Bodies = %+v, want %+v", got.Bodies, tc.want)
 			}
 		})
 	}
@@ -425,8 +436,8 @@ func TestResolveAbstractLeafResolvesWithoutError(t *testing.T) {
 	if !got.Abstract {
 		t.Error("Abstract = false, want true")
 	}
-	if got.Body != "shared" || got.Name != "Base" {
-		t.Errorf("Body/Name = %q/%q, want shared/Base", got.Body, got.Name)
+	if len(got.Bodies) != 1 || got.Bodies[0].Text != "shared" || got.Name != "Base" {
+		t.Errorf("Bodies/Name = %+v/%q, want [shared]/Base", got.Bodies, got.Name)
 	}
 }
 
@@ -648,10 +659,12 @@ func TestResolveCompositionFoldsPartsAfterTheChain(t *testing.T) {
 	if got.Abstract {
 		t.Error("an abstract part made the composition abstract")
 	}
-	// Every part's prose is concatenated after the chain's, in fold order,
-	// because the body is additive wherever it comes from.
-	if want := "base prose\n\nengineer prose"; !strings.HasPrefix(got.Body, want) {
-		t.Errorf("the body is %q, want it to open with %q", got.Body, want)
+	// Every declared body arrives in fold order, the chain's ahead of the
+	// parts', each tagged with the profile that wrote it. What a later body
+	// does to an earlier one is the render engine's question and not this
+	// one's.
+	if len(got.Bodies) < 2 || got.Bodies[0].Text != "base prose" || got.Bodies[1].Text != "engineer prose" {
+		t.Errorf("Bodies = %+v, want base's then engineer's first", got.Bodies)
 	}
 }
 

@@ -50,7 +50,7 @@ func fixtureLayer(t *testing.T, resolved profile.Resolved) *Layer {
 		// composition root supplies them: a template may name a source, and
 		// reading one is I/O a renderer may not do.
 		Templates: map[string]string{
-			"AGENTS.md": "# <!-- cairn:value profile -->\n\n" + resolved.Body + "\n",
+			"AGENTS.md": "# <!-- cairn:value profile -->\n\nthe instruction file\n",
 			"CLAUDE.md": "@" + "AGENTS.md" + "\n",
 			"boot.md":   "a boot-directory destination this layer does not render\n",
 		},
@@ -138,7 +138,7 @@ func fullyDeclaredLayer(t *testing.T) *Layer {
 		ID:       "base",
 		Name:     "Base",
 		Provider: profile.ProviderClaude,
-		Body:     "the operator's prose",
+		Bodies:   []profile.Body{{ID: "base", Text: "the operator's prose"}},
 		Spec:     fixtureSpec(t, declaredManifest(skillsDir)),
 	})
 }
@@ -241,8 +241,13 @@ func TestRenderInstructionFileOpensWithTheGeneratedMarker(t *testing.T) {
 	if !strings.Contains(string(agents.Content), `"base"`) {
 		t.Errorf(".claude/AGENTS.md does not name the profile it was rendered from:\n%s", agents.Content)
 	}
-	if !strings.Contains(string(agents.Content), "the operator's prose") {
-		t.Errorf(".claude/AGENTS.md lost the profile body behind the marker:\n%s", agents.Content)
+	// The template's own content, not the profile's body. The assertion used
+	// to name the body and could not have tested it: the fixture interpolated
+	// resolved.Body into the template text, so what survived the marker was
+	// the template either way — which is one more way the never-rendered body
+	// went unnoticed.
+	if !strings.Contains(string(agents.Content), "the instruction file") {
+		t.Errorf(".claude/AGENTS.md lost the template's content behind the marker:\n%s", agents.Content)
 	}
 }
 
@@ -334,7 +339,8 @@ func TestBootDirectoryInstructionFileCarriesNoGeneratedMarker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootdir.LayoutFor(%q): %v", profile.ProviderClaude, err)
 	}
-	resolved := profile.Resolved{ID: "base", Name: "Base", Provider: profile.ProviderClaude, Body: "prose"}
+	resolved := profile.Resolved{ID: "base", Name: "Base", Provider: profile.ProviderClaude,
+		Bodies: []profile.Body{{ID: "base", Text: "prose"}}}
 	files, err := bootdir.Render(&bootdir.Instance{
 		Dir:       filepath.Join(t.TempDir(), "boot"),
 		Layout:    layout,
@@ -360,7 +366,7 @@ func TestRenderAbstractProfile(t *testing.T) {
 		Name:     "Base",
 		Abstract: true,
 		Provider: profile.ProviderClaude,
-		Body:     "the abstract root",
+		Bodies:   []profile.Body{{ID: "base", Text: "the abstract root"}},
 	})
 	files, err := Render(lay)
 	if err != nil {

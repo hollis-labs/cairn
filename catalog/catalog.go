@@ -171,11 +171,18 @@ type Catalog struct {
 	profiles map[string]profile.Profile
 	bindings map[string]Binding
 
+	// layouts is the unparsed text of every layout, keyed by file stem. It is
+	// read here because the catalog is the store and a layout is one more file
+	// in the bundle; it is unparsed because what the text means is the render
+	// engine's — see [Catalog.LayoutText].
+	layouts map[string]string
+
 	// The listing orders, sorted at Open. They are held rather than recomputed
 	// so that [Catalog.Profiles] and [Catalog.Bindings] are reads and not
 	// sorts.
 	profileIDs   []string
 	bindingNames []string
+	layoutNames  []string
 }
 
 // DefaultRoot returns the bundle directory: envRoot when it is set,
@@ -219,9 +226,13 @@ func Open(root string) (*Catalog, error) {
 	if c.bindings, err = readBindings(dir, c.profiles); err != nil {
 		return nil, err
 	}
+	if c.layouts, err = readLayouts(dir); err != nil {
+		return nil, err
+	}
 
 	c.profileIDs = sortedKeys(c.profiles)
 	c.bindingNames = sortedKeys(c.bindings)
+	c.layoutNames = sortedKeys(c.layouts)
 	return c, nil
 }
 

@@ -91,6 +91,18 @@ type Layer struct {
 	// [bootdir.Instance].Home is.
 	Home string
 
+	// Document is the profile's body, rendered, or empty for a profile with
+	// none. It lands at the path this provider's tree declares for its
+	// instruction artifact, and it takes precedence over a template declared
+	// for the same artifact — see [bootdir.ErrInstructionArtifact], which
+	// refuses a profile that declares both.
+	//
+	// It arrives rendered for the reason Templates does. The caller renders
+	// it once and hands the text to both layers, so `cairn install` and
+	// `cairn boot` cannot write two different instruction documents from one
+	// profile.
+	Document string
+
 	// Templates is the manifest's templates, keyed by destination, with every
 	// value already resolved to its text. It arrives resolved for the reason
 	// [bootdir.Instance].Templates does: a template may name a source, and

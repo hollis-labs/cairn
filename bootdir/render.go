@@ -84,6 +84,15 @@ type Instance struct {
 	// containment check that guards the write lives in package scope.
 	Scope string
 
+	// Document is the profile's body, rendered. It lands at the path this
+	// tree declares for its instruction artifact — see [instructionFile] —
+	// and an empty Document renders no such file at all.
+	//
+	// It arrives rendered for the reason Templates does, and more so: a body
+	// carries inline sources, and resolving one runs a command or reads a
+	// file. What reaches a renderer is text.
+	Document string
+
 	// Templates is the manifest's templates, keyed by boot-directory-relative
 	// destination, with every value already resolved to its text. It arrives
 	// resolved because a template may name a source rather than a literal, and

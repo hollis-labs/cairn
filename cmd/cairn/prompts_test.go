@@ -296,7 +296,6 @@ func TestAnUnfilledMarkerInAPromptIsReported(t *testing.T) {
 		Name:     "Auditor",
 		Provider: "claude",
 		Model:    "opus",
-		Body:     "auditor persona",
 		Spec: map[string]string{
 			// One slot, declared, resolving to nothing: `true` prints nothing
 			// and exits 0, so the slot succeeds and fills the empty string.

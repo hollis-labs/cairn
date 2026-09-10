@@ -20,6 +20,12 @@
 # where it first landed.
 #
 # What it contributes when composed is what it declares below and nothing else.
+#
+# Its prose is a SECTION and not loose text, and that is what makes it a
+# fragment: a document holding nothing but section declarations declares
+# content and no shape, so composing it never hands it the shape of the whole
+# document. Loose prose here would — a part is closer than the profile being
+# booted, and closest-wins would give it the frame.
 id: docs-only
 extends: base
 name: Docs only
@@ -45,5 +51,9 @@ spec:
     - capture-decision
 ---
 
+{{ section direction }}
+## Direction
+
 Write user-facing documentation only. Prefer the reader's vocabulary over the
 codebase's, and leave the API reference to the generator that owns it.
+{{ end }}

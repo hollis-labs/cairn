@@ -217,7 +217,7 @@ func TestInstallAbstractProfile(t *testing.T) {
 		Name:     "Base",
 		Abstract: true,
 		Provider: profile.ProviderClaude,
-		Body:     "the abstract root",
+		Bodies:   []profile.Body{{ID: "base", Text: "the abstract root"}},
 	})
 	result, err := Install(lay)
 	if err != nil {
@@ -227,8 +227,8 @@ func TestInstallAbstractProfile(t *testing.T) {
 	if !slices.Equal(result.Files, want) {
 		t.Fatalf("Install an abstract profile wrote %v, want %v", result.Files, want)
 	}
-	if content := string(installed(t, lay.Root, ".claude/AGENTS.md")); !strings.Contains(content, "the abstract root") {
-		t.Errorf("the installed instruction file lost the profile body:\n%s", content)
+	if content := string(installed(t, lay.Root, ".claude/AGENTS.md")); !strings.Contains(content, "the instruction file") {
+		t.Errorf("the installed instruction file lost the template's content:\n%s", content)
 	}
 }
 
@@ -348,7 +348,7 @@ func TestInstallOverwritesItsOwnOutput(t *testing.T) {
 	lay := fixtureLayer(t, profile.Resolved{
 		ID:       "base",
 		Provider: profile.ProviderClaude,
-		Body:     "first",
+		Bodies:   []profile.Body{{ID: "base", Text: "first"}},
 	})
 	if _, err := Install(lay); err != nil {
 		t.Fatalf("the first Install: %v", err)

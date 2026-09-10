@@ -28,8 +28,17 @@ func renderTemplates(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
 	}
+	// The instruction artifact first, and from the body when there is one.
+	// Ahead of the manifest's own destinations because it is the document a
+	// broken template should fail on: it is the file that tells an agent what
+	// it is, and a diagnostic about it is worth more than one about a file
+	// beside it.
+	instruction, claimed, err := instructionFile(inst)
+	if err != nil {
+		return nil, err
+	}
 	if len(inst.Templates) == 0 {
-		return nil, nil
+		return instruction, nil
 	}
 	rels := make([]string, 0, len(inst.Templates))
 	for rel := range inst.Templates {
@@ -37,8 +46,16 @@ func renderTemplates(inst *Instance) ([]File, error) {
 	}
 	slices.Sort(rels)
 
-	files := make([]File, 0, len(rels))
+	files := make([]File, 0, len(rels)+len(instruction))
+	files = append(files, instruction...)
 	for _, rel := range rels {
+		// The body took this destination, and [instructionFile] refuses the
+		// case where both declared one — so reaching here means the manifest
+		// declares no template for it and there is nothing to skip. The guard
+		// is against a future where the refusal softens.
+		if claimed && rel == inst.Layout.Agents.Dest {
+			continue
+		}
 		// A destination this tree has no reader for renders nothing. Which
 		// destinations those are is the tree's to say — cairn does not know
 		// what any of these files is, only that one harness's document lists
@@ -114,6 +131,17 @@ func templateFile(inst *Instance, dest string, artifact Artifact) ([]File, error
 func RenderAgentsTemplate(inst *Instance) ([]File, error) {
 	if inst == nil || inst.Profile == nil {
 		return nil, ErrNoProfile
+	}
+	// The body when there is one, and this layer's declared template
+	// otherwise. The order is the boot directory's, through the same
+	// function, so an operator cannot install one instruction document and
+	// boot another.
+	instruction, claimed, err := instructionFile(inst)
+	if err != nil {
+		return nil, err
+	}
+	if claimed {
+		return instruction, nil
 	}
 	return templateFile(inst, inst.Layout.Agents.Dest, inst.Layout.Agents)
 }

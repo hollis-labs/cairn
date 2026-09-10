@@ -75,7 +75,7 @@ func newCheckFixtureDeclaring(t *testing.T, settings map[string]any, skills ...s
 			Name:     "Base",
 			Provider: profile.ProviderClaude,
 			Model:    "opus",
-			Body:     "Read the profile.",
+			Bodies:   []profile.Body{{ID: "base", Text: "Read the profile."}},
 			Spec:     checkSpec(t, manifest),
 		},
 		Home: t.TempDir(),

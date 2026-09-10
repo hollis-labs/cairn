@@ -164,6 +164,7 @@ func layerInstance(lay *Layer, layout bootdir.Layout) *bootdir.Instance {
 		Layout:    layout,
 		Profile:   lay.Profile,
 		Home:      lay.Home,
+		Document:  lay.Document,
 		Templates: lay.Templates,
 		Sections:  lay.Sections,
 		Values:    lay.Values,

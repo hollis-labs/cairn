@@ -48,7 +48,7 @@ func TestATemplateCannotReachAManifestValue(t *testing.T) {
 		Name:     "Engineer",
 		Provider: profile.ProviderClaude,
 		Model:    "opus",
-		Body:     "engineer persona",
+		Bodies:   []profile.Body{{ID: "engineer", Text: "engineer persona"}},
 		Spec: profile.Spec{
 			"mcp": json.RawMessage(`[{"name":"vanta","command":"vanta-mcp",` +
 				`"env":{"VANTA_TOKEN":"` + secret + `"},"args":["--token","` + secret + `"]}]`),

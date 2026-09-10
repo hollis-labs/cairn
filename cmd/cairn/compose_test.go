@@ -1213,7 +1213,6 @@ func TestANestedProfileIsAnOrdinaryProfile(t *testing.T) {
 		ID:      "docs-only",
 		Extends: "base",
 		Name:    "Docs only",
-		Body:    "docs-only persona",
 		Spec:    map[string]string{"skills": `["docs-review"]`},
 	})
 

@@ -329,23 +329,41 @@ func runInstall(ctx context.Context, args []string, stdout, stderr io.Writer) er
 			strings.Join(skipped, ", "), kindList(slots.DeterministicKinds()))
 	}
 
+	values := instanceValues(map[string]string{
+		"binding": target,
+		"profile": resolved.ID,
+		// The target rather than the declaration, for the reason the
+		// layer is rendered for the target: a value marker names a fact
+		// about this materialization, and "which harness is this" is one.
+		"provider": provider.String(),
+		"model":    resolved.Model,
+	})
+
+	// The profile's body, rendered. Deterministic for the reason the slots
+	// above are: this layer is diffed against disk by `--check`, and a body
+	// whose inline sources ran a command would report drift on every run.
+	document, err := renderDocument(ctx, cat, resolved, values, slots.Options{
+		Deterministic: true,
+		Env:           env,
+		Provenance: agentcontext.ProvenanceInput{
+			LineageAlias: target,
+			ProfileID:    resolved.ID,
+		},
+	}, stderr)
+	if err != nil {
+		return err
+	}
+
 	lay := &install.Layer{
 		Root:      root,
 		Profile:   resolved,
 		Provider:  provider,
 		Home:      home,
 		Env:       env,
+		Document:  document,
 		Templates: templates,
 		Sections:  sections,
-		Values: instanceValues(map[string]string{
-			"binding": target,
-			"profile": resolved.ID,
-			// The target rather than the declaration, for the reason the
-			// layer is rendered for the target: a value marker names a fact
-			// about this materialization, and "which harness is this" is one.
-			"provider": provider.String(),
-			"model":    resolved.Model,
-		}),
+		Values:    values,
 	}
 
 	// Reported before the render, and reported for a check as well as a write.
@@ -689,6 +707,34 @@ func runBoot(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		return err
 	}
 
+	values := instanceValues(map[string]string{
+		"binding": name,
+		"profile": resolved.ID,
+		// The target rather than the declaration. A value marker names a
+		// fact about this materialization, and which harness it was
+		// written for is one of them — the same string bootReport carries,
+		// which it already reads off the layout.
+		"provider": provider.String(),
+		"model":    resolved.Model,
+		"scope":    scopeDir,
+		"session":  session,
+	})
+
+	// The profile's body, rendered into the one instruction document this
+	// boot directory plants. Resolved here rather than in a renderer for the
+	// reason the slots and files above are: an inline source runs a command.
+	document, err := renderDocument(ctx, cat, resolved, values, slots.Options{
+		Workdir: scopeDir,
+		Env:     env,
+		Provenance: agentcontext.ProvenanceInput{
+			LineageAlias: name,
+			ProfileID:    resolved.ID,
+		},
+	}, stderr)
+	if err != nil {
+		return err
+	}
+
 	inst := &bootdir.Instance{
 		Dir:       dir,
 		Layout:    layout,
@@ -698,20 +744,10 @@ func runBoot(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		Scope:     scopeDir,
 		Files:     planted,
 		Subagents: subagents,
+		Document:  document,
 		Templates: templates,
 		Sections:  sections,
-		Values: instanceValues(map[string]string{
-			"binding": name,
-			"profile": resolved.ID,
-			// The target rather than the declaration. A value marker names a
-			// fact about this materialization, and which harness it was
-			// written for is one of them — the same string bootReport carries,
-			// which it already reads off the layout.
-			"provider": provider.String(),
-			"model":    resolved.Model,
-			"scope":    scopeDir,
-			"session":  session,
-		}),
+		Values:    values,
 	}
 	// Reported before the write rather than after it, so that an operator
 	// reading stderr sees the missing block named beside the slot failure that

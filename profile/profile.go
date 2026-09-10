@@ -271,13 +271,42 @@ type Resolved struct {
 	Provider    Provider
 	Model       string
 
-	// Body is every profile's body concatenated ancestor-first.
-	Body string
+	// Bodies is every declared body in the chain, in fold order and skipping
+	// the profiles that declared none — see [Body].
+	//
+	// It is a list and not a concatenation, and that is the correction of a
+	// defect rather than a refinement. The field used to be one string joined
+	// ancestor-first "because the persona is additive", and NOTHING RENDERED
+	// IT: a profile's prose was read, folded, and dropped. `cairn show` said
+	// `cairn boot` rendered it, which was not true of either layer.
+	//
+	// A list is what the render engine needs, because composing bodies is not
+	// concatenating them. A body is a template — see
+	// [github.com/chrispian/cairn/template] — so the chain's sections fold
+	// closest-wins and one document supplies the shape. Handing that engine a
+	// string with the chain already flattened into it would make both
+	// impossible.
+	Bodies []Body
 
 	// Spec is the composed manifest: a keyed collection merged member by
 	// member across the chain, and every other key the value from the closest
 	// profile that declares it. See [Resolve].
 	Spec Spec
+}
+
+// Body is one profile's prose, with the profile it came from.
+//
+// The id travels with the text because everything the render engine says about
+// a body has to name one: which document supplied the shape, which document's
+// section won, and which document's prose did not render at all. A list of
+// anonymous strings can answer none of those.
+type Body struct {
+	// ID is the profile the prose was declared in.
+	ID string
+
+	// Text is the prose, trimmed of the surrounding blank lines that are the
+	// file's formatting rather than the author's content.
+	Text string
 }
 
 // Slots returns the slot specifications under [SpecKeySlots]. A manifest

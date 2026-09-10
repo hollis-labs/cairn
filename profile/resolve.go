@@ -55,8 +55,11 @@ type Loader interface {
 // A key exactly one profile in the chain declares is carried byte for byte:
 // two declared values are what a merge needs, so one never reaches a merger.
 //
-// [Profile.Body] is the exception to all of it: it concatenates ancestor-first,
-// because the persona is additive.
+// [Profile.Body] is carried rather than composed: [Resolved.Bodies] is every
+// declared body in fold order, and what composing them means belongs to the
+// engine that renders them — see [github.com/chrispian/cairn/template]. It
+// used to be concatenated here, ancestor-first, and the concatenation was
+// never rendered by anything.
 //
 // [Profile.Abstract] does not cascade. [Resolved.Abstract] is the leaf's own
 // flag, carried rather than acted on: Resolve never refuses to resolve an
@@ -199,7 +202,6 @@ func ResolveComposition(ctx context.Context, l Loader, id string, parts []string
 		Spec:          Spec{},
 	}
 
-	bodies := make([]string, 0, len(chain))
 	for _, p := range chain {
 		if p.Name != "" {
 			out.Name = p.Name
@@ -214,7 +216,7 @@ func ResolveComposition(ctx context.Context, l Loader, id string, parts []string
 			out.Model = p.Model
 		}
 		if body := strings.TrimSpace(p.Body); body != "" {
-			bodies = append(bodies, body)
+			out.Bodies = append(out.Bodies, Body{ID: p.ID, Text: body})
 		}
 		for key, raw := range p.Spec {
 			prev, declared := out.Spec[key]
@@ -232,8 +234,6 @@ func ResolveComposition(ctx context.Context, l Loader, id string, parts []string
 			out.Spec[key] = merged
 		}
 	}
-	out.Body = strings.Join(bodies, "\n\n")
-
 	return out, nil
 }
 

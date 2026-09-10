@@ -152,9 +152,13 @@ func TestBootEndToEnd(t *testing.T) {
 			t.Errorf("the definition does not carry %q:\n%s", want, definition)
 		}
 	}
-	if strings.Contains(definition, "reviewer persona") || strings.Contains(definition, "base persona") {
-		t.Errorf("the definition carries a cascaded body:\n%s", definition)
-	}
+	// A named profile's own body is deliberately not checked here, and no
+	// profile in this bundle carries one. Every profile it boots declares a
+	// spec.templates instruction document, and a body beside one is refused
+	// rather than shadowed — see bootdir.ErrInstructionArtifact — so a fixture
+	// carrying both could not boot at all. That a body reaches the instruction
+	// artifact and never a subagent definition is pinned by
+	// TestBootRendersTheProfileBodyAndNothingElseCarriesIt.
 
 	// A skill's executable bit is load-bearing: a script that arrives without
 	// it is a skill that fails halfway through instead of at boot.
@@ -1196,7 +1200,6 @@ func seed(t *testing.T, bundle, skillsDir, scopeDir string) map[string]bundlePro
 		Name:     "Base",
 		Provider: "claude",
 		Model:    "opus",
-		Body:     "base persona",
 		Spec: map[string]string{
 			// Under the provider it is for. A profile serving two harnesses
 			// declares two documents here; this bundle renders claude, and
@@ -1223,7 +1226,6 @@ func seed(t *testing.T, bundle, skillsDir, scopeDir string) map[string]bundlePro
 		ID:      "reviewer",
 		Extends: "base",
 		Name:    "Reviewer",
-		Body:    "reviewer persona, which the definition does not carry",
 		Spec: map[string]string{
 			"subagent": `{
 				"description": "Fresh review with no shared context.",
@@ -1251,7 +1253,6 @@ func seed(t *testing.T, bundle, skillsDir, scopeDir string) map[string]bundlePro
 		ID:      "engineer",
 		Extends: "base",
 		Name:    "Engineer",
-		Body:    "engineer persona",
 		Spec: map[string]string{
 			"subagents": `["reviewer"]`,
 			// The leaf restates the whole template, which is how closest-wins

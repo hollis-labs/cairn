@@ -53,7 +53,7 @@ func contractInstance(t *testing.T) *Instance {
 		Description: "Reviews changes before they land.",
 		Provider:    profile.ProviderClaude,
 		Model:       "claude-sonnet-4-5",
-		Body:        "You read diffs.\n",
+		Bodies:      []profile.Body{{ID: "reviewer", Text: "You read diffs."}},
 		Spec:        testSpec(t, string(manifest)),
 	})
 	inst.Scope = "/Users/chrispian/dev/projects/cairn"
