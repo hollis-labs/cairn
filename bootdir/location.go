@@ -57,13 +57,13 @@ var ErrNoHome = errors.New("home directory unknown")
 var ErrLocation = errors.New("invalid boot directory location")
 
 // Location names where one boot directory goes: the root every boot directory
-// is planted below, the binding or profile it was materialized for, and the
+// is planted below, the profile it was materialized for, and the
 // segment that makes this materialization distinct from the last one.
 type Location struct {
 	// Root is the absolute directory boot directories are planted below.
 	Root string
 
-	// Name is the binding or profile id this boot directory was materialized
+	// Name is the profile id this boot directory was materialized
 	// for. It must be a single path segment.
 	Name string
 

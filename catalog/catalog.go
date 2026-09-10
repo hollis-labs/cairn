@@ -2,20 +2,19 @@
 // memory whole at the start of a command.
 //
 // The catalog is the store. A profile is a markdown file with YAML
-// frontmatter, a binding is a small YAML file, and git is the review surface —
+// frontmatter, a layout is a markdown file, and git is the review surface —
 // so there is nothing to seed, nothing to migrate, and no second copy of the
 // operator's profiles to keep in step with the first.
 //
-// Reading is almost all this package does. It creates no directory and no
-// file, and it does not treat an absent bundle as a starting state to be
-// conjured: a read that finds nothing says what it was looking for and where,
-// which is the one thing a command pointed at the wrong bundle needs to hear.
+// Reading is all this package does. It creates no directory and no file, and
+// it does not treat an absent bundle as a starting state to be conjured: a
+// read that finds nothing says what it was looking for and where, which is
+// the one thing a command pointed at the wrong bundle needs to hear.
 //
-// The exception is [MarshalBinding], which renders a binding to bytes and
-// hands them back. It is here because the parser is here and a format with two
-// owners drifts; it is not a write, because deciding that a file may be
-// created is the composition root's call and `--save-as` is where that is
-// made.
+// It used to have one exception: a marshaller that rendered a saved
+// composition to bytes for `--save-as` to write. Bindings retired —
+// launch-time assembly belongs to the launcher, and cairn holds no launch
+// state — so this package reads, and the sentence above needs no exception.
 package catalog
 
 import (
@@ -59,9 +58,6 @@ const ProfilesDir = "profiles"
 // worth writing down now that one of them has stopped being true.
 const PartsDir = "parts"
 
-// BindingsDir is the bundle subdirectory holding one YAML file per binding.
-const BindingsDir = "bindings"
-
 // ErrBundleNotFound reports that the bundle directory is absent, or is not a
 // directory.
 var ErrBundleNotFound = errors.New("profile bundle not found")
@@ -89,87 +85,19 @@ var ErrProfileNotFound = errors.New("profile not found")
 // because the fix is to rename one and the reader has to know which two.
 var ErrDuplicateProfileID = errors.New("two profiles claim one id")
 
-// ErrBindingNotFound reports that no binding file exists for a name.
-var ErrBindingNotFound = errors.New("binding not found")
-
-// ErrBindingName reports a name that cannot be a binding's, because it cannot
-// be the base name of a file in the bindings directory.
-var ErrBindingName = errors.New("not a binding name")
-
 // ErrNoHome reports that the bundle path fell back to the home directory and
 // no home directory is known.
 var ErrNoHome = errors.New("home directory unknown")
 
-// Binding is one file of the bindings directory: a saved composition. A base
-// profile, the parts merged onto it, the skills and prompts the boot directory
-// carries, and the scope that boot works in.
-//
-// Sprawl lands here rather than in profiles, which is the whole reason a
-// binding says several things and not one. A composition worth reusing is a
-// few lines of YAML; a profile is a document. The fields below are the list,
-// and this sentence deliberately does not count them: it used to say four, and
-// went on saying four after prompts made it five.
-//
-// Name is the exception among them, and the exception is about where the value
-// comes from rather than about how many there are: it is the file's own name,
-// not something the file declares.
-type Binding struct {
-	// Name is the binding's identity — what `cairn boot` is given. It is the
-	// file's base name, so a binding cannot disagree with what it is called.
-	Name string
-
-	// ProfileID is the profile this binding boots.
-	ProfileID string
-
-	// Parts are the profiles merged after that profile's extends chain
-	// resolves, closest-wins and in this order — exactly what --with names,
-	// and held as the operator wrote them. Empty for a binding that composes
-	// nothing.
-	//
-	// A part is held as written and not as it expands, because what a binding
-	// records has to stay true when the bundle moves. `$CAIRN_PROFILE_ROOT/x.md`
-	// saved as an absolute path would be a binding that worked on one machine.
-	Parts []string
-
-	// Skills are added to the ones the resolved profile carries, by id, the
-	// way --skill adds them. Empty for a binding that adds none.
-	//
-	// Optional, and not the only way to say it: a stable role whose skills
-	// never change declares them in its profile, or in a part this binding
-	// names. The field exists so that a --skill passed at boot survives
-	// --save-as, because a flag vanishing from the thing that claims to save
-	// what you just did is the surprising outcome.
-	Skills []string
-
-	// Prompts are added the same way, by id, as --prompt adds them. Empty for
-	// a binding that adds none.
-	//
-	// It is a separate field from Skills for the reason the manifest keys are
-	// separate: a boot directory carries a set of skills the harness loads and
-	// a set of prompts a person invokes, and a binding that could only say one
-	// of them would be a saved composition that does not save the composition.
-	Prompts []string
-
-	// Scope is where that boot works: a directory path, as the file wrote it.
-	// Empty means no declared scope.
-	//
-	// It is a path and only a path. A bundle-wide registry of short names for
-	// directories used to stand in front of this field, and retiring it is
-	// what makes the value here readable on its own — a binding says where it
-	// works, and nothing else in the bundle can change the answer.
-	Scope string
-}
-
 // Catalog is one bundle, read.
 //
 // Everything is read at [Open] and nothing is read after it. A command resolves
-// a chain, a subagent's profile and a binding's scope from the same snapshot,
+// a chain, a subagent's profile and a layout from the same snapshot,
 // so a file edited mid-command cannot make one lookup disagree with the next.
 type Catalog struct {
 	root string
 
 	profiles map[string]profile.Profile
-	bindings map[string]Binding
 
 	// layouts is the unparsed text of every layout, keyed by file stem. It is
 	// read here because the catalog is the store and a layout is one more file
@@ -178,11 +106,10 @@ type Catalog struct {
 	layouts map[string]string
 
 	// The listing orders, sorted at Open. They are held rather than recomputed
-	// so that [Catalog.Profiles] and [Catalog.Bindings] are reads and not
+	// so that [Catalog.Profiles] and [Catalog.Layouts] are reads and not
 	// sorts.
-	profileIDs   []string
-	bindingNames []string
-	layoutNames  []string
+	profileIDs  []string
+	layoutNames []string
 }
 
 // DefaultRoot returns the bundle directory: envRoot when it is set,
@@ -207,9 +134,8 @@ func DefaultRoot(envRoot, xdgConfigHome, home string) (string, error) {
 
 // Open reads the bundle rooted at root.
 //
-// An absent root, an absent profiles directory, an unparseable profile and a
-// binding naming a profile that is not there are all refusals, and each names
-// the file it was reading. Failing at Open rather than at the first lookup is
+// An absent root, an absent profiles directory and an unparseable profile are
+// all refusals, and each names the file it was reading. Failing at Open rather than at the first lookup is
 // what makes the diagnostic useful: the operator hears that the bundle is
 // wrong, instead of hearing that the profile they asked for is missing from a
 // bundle that was never read.
@@ -223,15 +149,11 @@ func Open(root string) (*Catalog, error) {
 	if c.profiles, err = readProfiles(dir); err != nil {
 		return nil, err
 	}
-	if c.bindings, err = readBindings(dir, c.profiles); err != nil {
-		return nil, err
-	}
 	if c.layouts, err = readLayouts(dir); err != nil {
 		return nil, err
 	}
 
 	c.profileIDs = sortedKeys(c.profiles)
-	c.bindingNames = sortedKeys(c.bindings)
 	c.layoutNames = sortedKeys(c.layouts)
 	return c, nil
 }
@@ -263,35 +185,13 @@ func (c *Catalog) Profiles() []profile.Profile {
 	return out
 }
 
-// Binding returns the binding stored under name, or an error wrapping
-// [ErrBindingNotFound] when no such file exists.
-func (c *Catalog) Binding(name string) (*Binding, error) {
-	b, ok := c.bindings[strings.TrimSpace(name)]
-	if !ok {
-		return nil, fmt.Errorf("load binding %q from %s: %w", name, filepath.Join(c.root, BindingsDir), ErrBindingNotFound)
-	}
-	return &b, nil
-}
-
-// Bindings returns every binding in the bundle, ordered by name.
-func (c *Catalog) Bindings() []Binding {
-	out := make([]Binding, 0, len(c.bindingNames))
-	for _, name := range c.bindingNames {
-		out = append(out, c.bindings[name])
-	}
-	return out
-}
-
-// There is no Scope lookup here, and there is no ResolvedScope beside
-// [Catalog.Bindings], because there is nothing left for either to resolve.
-// [Binding.Scope] is the directory, trimmed as it was read, and a caller that
-// wants where a binding's boot works reads that field.
+// There is no binding lookup here and no scope lookup either, because there is
+// nothing left for either to resolve.
 //
-// It was not always so: a bundle-wide registry mapped short names to
-// directories, so the scope in a binding file could be a name this catalog had
-// to look up, and the listing needed a method to ask. The registry retired —
-// `--scope nanite` bought over `--scope ~/dev/hollis-labs/apps/nanite` what a
-// shell alias buys, at the price of a second name for every directory — and a
-// method called ResolvedScope that returned its argument's field unchanged
-// would be a resolution step that no longer resolves anything, which is a
-// worse thing to leave standing than a deletion.
+// Bindings retired — see the package comment. Before them a bundle-wide
+// registry mapped short names to directories, so the scope in a binding file
+// could be a name this catalog had to look up, and the listing needed a method
+// to ask. The registry went first and the bindings after it; a method that
+// returned its argument's field unchanged would be a resolution step that no
+// longer resolves anything, which is a worse thing to leave standing than a
+// deletion.

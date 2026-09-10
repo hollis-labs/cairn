@@ -7,20 +7,19 @@ Nothing here starts, watches, or supervises an agent.
 Four commands and one workflow:
 
 ```
-cairn boot <binding|profile> [--scope <path>]         materialize a boot dir, print its path
-cairn boot <binding|profile> --json                   ... and describe it for a launcher
-cairn boot <binding|profile> --save-as <name>         ... and save the composition as a binding
-cairn show <binding|profile>                          print what the profile resolves to
-cairn show <binding|profile> --json                   ... and describe it for a launcher
-cairn install <binding|profile> [--check]             render ~/.claude from the same source
+cairn boot <profile> [--scope <path>]                 materialize a boot dir, print its path
+cairn boot <profile> --json                           ... and describe it for a launcher
+cairn show <profile>                                  print what the profile resolves to
+cairn show <profile> --json                           ... and describe it for a launcher
+cairn install <profile> [--check]                     render ~/.claude from the same source
 cairn list                                            enumerate the catalog
 ```
 
 `boot` and `show` also take the composition flags — `--with`, `--skill`,
 `--prompt` and `--set`, all repeatable — which say what this one launch
 carries beyond the profile it names. See **Composing one launch** under §3. A
-composition worth keeping becomes a **binding**: see **Saving one:
-`--save-as`** in the same section.
+composition is assembled for one launch and is the launcher's to hold: cairn
+writes no composition down and reads none back.
 
 ---
 
@@ -40,7 +39,6 @@ files, which is the whole store:
 <bundle>/
   profiles/    one markdown file per profile, YAML frontmatter and prose
     parts/     the same, for the small reusable ones — one flat namespace
-  bindings/    one YAML file per binding, named after the binding
   templates/   the documents your profiles name
   skills/      one directory per skill
   prompts/     one flat .md file per prompt
@@ -59,8 +57,8 @@ seed and nothing to import: edit a file, and the next command reads it.
 
 It holds an abstract `base`, a concrete `engineer` that extends it, a
 `reviewer` the engineer dispatches and that also boots on its own, a
-`docs-only` part, three bindings — one of which composes a
-part, which is what `--save-as` writes — and the templates, the skill and the
+`docs-only` part, the `documentarian` profile that IS its own template, one
+layout under `templates/layouts/`, and the templates, the skill and the
 prompt `engineer` names — plus a second prompt no profile names, which is
 there to be added with `--prompt`. Read it — it is the profile-authoring
 documentation.
@@ -83,10 +81,9 @@ Four things it demonstrates that are easy to get wrong:
 - **`key: null` clears an ancestor's key.** Presence wins, and an explicit null
   is presence.
 
-A profile's id is its file name, and the two are held to agreeing. A binding's
-name is its file name. Cairn refuses a bundle where either disagrees, and a
-binding naming a profile that has no file, rather than discovering it whenever
-somebody happens to boot that one name.
+A profile's id is its file name, and the two are held to agreeing, so a bundle
+that answers to an id with two documents is refused when it is read rather than
+resolving one and listing the other.
 
 ## 3. Boot
 
@@ -267,9 +264,9 @@ $ cairn boot engineer --with docs-only
 $ cairn boot docs-only            # a part is bootable on its own, as ever
 ```
 
-A binding stores `parts: [docs-only]`, and `--save-as` writes that — a nested
-part is catalogued content reachable by name, so it is saved by id like any
-other and none of the path rules below apply to it.
+A part is named by its bare id — `--with docs-only`, never
+`--with parts/docs-only` — because the directory is where the file lives and not
+part of what the profile is called.
 
 Writing `--with parts/docs-only` holds a separator, so it is read as a **path**
 and fails. Cairn checks whether the stem names a profile and says so rather
@@ -408,97 +405,145 @@ columns above. See **`cairn show --json`** in §5.
 
 `cairn install` takes none of them. It renders the layer every session on the
 machine loads, and a composition is an instance concern by construction — a
-binding's parts, skills and prompts are not replayed there either, for the
-same reason, and `install` says so when the binding it was given composes
-something.
+`install` takes no composition flags at all, for the same reason: the installed
+layer is what every session on the machine loads, not one launch.
 
-### Saving one: `--save-as`
+### There is no saved composition
 
-A composition you find yourself typing twice is a **binding**. `--save-as`
-writes the one you just booted into `<bundle>/bindings/<name>.yaml`, and
-`cairn boot <name>` replays it:
+`--save-as` used to write the composition you had just booted into
+`<bundle>/bindings/<name>.yaml`, and `cairn boot <name>` replayed it. Both are
+gone, and the reasoning is worth keeping because it is the seam:
 
-```console
-$ cairn boot engineer --with docs-only --skill capture-decision \
-                      --scope cairn --save-as eng-docs
-cairn: --save-as eng-docs: wrote /Users/you/.config/agents/bindings/eng-docs.yaml
+**Launch-time assembly belongs to the launcher.** A binding was a saved
+(profile, parts, skills, prompts, scope) tuple — every field of it a fact about
+one launch rather than about an agent. Cairn materializes at runtime from
+whatever sources it is pointed at and holds no launch state, so a palette entry
+is Tachyon's to store and cairn's only job is to render what it is handed.
 
-$ cat ~/.config/agents/bindings/eng-docs.yaml
-profile: engineer
-parts:
-  - docs-only
-skills:
-  - capture-decision
-scope: cairn
+What that means at the terminal: type the flags, or have your launcher type
+them. `--with`, `--skill`, `--prompt`, `--set`, `--scope` and `--provider` all
+stay, and `cairn show` previews any combination of them without writing
+anything.
+
+### The profile is the template
+
+Everything below a profile's frontmatter is template content. It names the
+layout it composes into, fills that layout's holes with named sections, and
+carries its own sources — so a profile, its template, its prose and the command
+it runs are one file. `documentarian` in this bundle is the worked example.
+
+```
+templates/layouts/agent.md         a default layout, not the only one
+    {{ value profile }}
+    ====================
+
+    {{ yield charter }}
+
+    {{ yield direction }}
+
+    {{ yield context }}
+
+profiles/documentarian.md
+    ---
+    id: documentarian
+    extends: base
+    spec:
+      templates:
+        "AGENTS.md": null
+    ---
+
+    {{ extends agent }}
+
+    {{ section charter }}
+    You write the documentation for this repository and nothing else.
+    {{ end }}
+
+    {{ section context }}
+    ## The tree, as it stands
+
+    {{ cmd: git status --short --branch }}
+    {{ end }}
 ```
 
-That is the whole format. Five keys, all but `profile` optional, in the order a
-composition resolves: the base profile, the parts merged onto its chain, the
-skills and prompts merged after those, and the scope — which is not part of the
-composition at all but a fact about the instance. Cairn writes what a person
-would type, so a saved binding and a hand-authored one are the same kind of
-file; add a comment above it and nothing will take it away.
+Six tags, and every name in them is yours:
 
-**Those five are the whole set, and a key that is not one of them is refused**
-naming the line and what could have been written instead. YAML would otherwise
-discard it in silence, and `part:` for `parts:` — or `skill:` for `skills:`,
-one character from the flag that fills it — would give you a binding that
-composes nothing, boots cleanly and never mentions it.
+```
+{{ extends NAME }}              compose this document into the layout NAME
+{{ section NAME }}…{{ end }}    declare content for NAME, and render it here
+{{ yield NAME }}                render NAME here, declaring nothing
+{{ value NAME }}                one value of the instance being materialized
+{{ parent }}                    inside a section: what the chain already had
+{{ KIND: ARG }}                 an inline source — {{ cmd: git status }}
+```
 
-**Values are saved as they were written.** `--scope ~/dev/projects/cairn` saves
-that spelling and not the expansion of it, for the same reason a part keeps its
-declared spelling: a binding that recorded one machine's expansion is a binding
-that works on one machine.
+Cairn ships no section names, no layout names and no source kinds. A section is
+whatever a layout yields, a layout is whatever the bundle holds, and a source
+kind is a word handed to the hydrator — `cmd`, `file`, `inline`, `static_dir`,
+`http_text`, `http_json`, `role_summary`. There is no conditional and no loop,
+which is the property that keeps a template a substitution target rather than a
+program.
 
-**With one exception: a relative `--scope` is saved as the directory it
-resolved to**, and cairn says so. A `~/` path and an absolute path both still
-name the same place tomorrow; a relative path is anchored to the working
-directory of the shell that typed it, and a binding records no working
-directory. Saved verbatim it would resolve somewhere else from somewhere else,
-silently.
+**Empty collapses.** A tag that renders nothing renders nothing, and takes its
+whitespace with it: its trailing whitespace goes, its line goes when nothing
+else non-whitespace is left on it, and a gap two removals ran together
+collapses to one blank line. Blank space no removal touched is left exactly as
+authored, so a fenced code block in your prose is not reflowed. That is the
+whole point of the shape — you never count newlines around a hole to make the
+output come out right.
 
-**A `--with` typed onto a binding lands after the binding's own parts**, which
-is closest-wins with the terminal closest — the same rule the `extends` chain
-follows. So `cairn boot eng-docs --with x --save-as eng-docs-x` grows the
-composition rather than replacing it.
+Boot `documentarian` and the layout's `{{ yield direction }}` renders nothing
+and leaves no gap; compose the part that fills it and the block appears in
+place:
 
-Two things `--save-as` does not do, and the difference between them is the
-point:
+```
+$ cairn boot documentarian --scope ~/dev/projects/cairn --with docs-only
+```
 
-- **A `--set` is dropped, and each one is named on stderr.** This run still
-  gets the value; the binding does not. A `--set` carries *content*, and
-  content in the catalog is the seam this design keeps clean. A direction worth
-  reusing is an ordinary part and arrives through `--with`.
-- **A path member is a refusal, not a drop**, and the diagnostic names the
-  path. The two look alike and are not: a `--set` can be dropped soundly
-  because nothing is lost but reuse, while dropping a path member would
-  silently change what the binding composes. Inlining the file's content
-  instead would turn a handle into content, which is the thing the bundle's
-  shape rests on not doing. Put the part in `profiles/` or `profiles/parts/`
-  and name it by id, or boot without `--save-as`. The refusal is about what the composition holds, not
-  which flag it arrived on — a binding whose own `parts:` names a path is
-  refused too, and the diagnostic says which file to edit.
+**Sections merge closest-wins**, which is the cascade's only rule: a
+descendant's section replaces the ancestor's at that name. `{{ parent }}` is
+how a section adds to an ancestor's instead — it renders what the chain already
+had, and it is the only spelling there is, because you cannot subtract under
+the other default.
 
-`--skill` and `--prompt` go the other way and *are* saved, which is the same
-distinction read from the other side: both lists are **ids**, the same kind of
-thing a binding already holds for its parts, so the reason to drop a `--set`
-does not transfer.
+**A layout may extend a layout.** The outermost is the frame and the ones
+inside it contribute default sections, so the ordering is one ordering applied
+to files of two kinds: outermost layout weakest, the profile's own section
+strongest.
 
-An existing binding is never overwritten — its file may hold a comment nothing
-else carries — so saving over one is a refusal too.
+**Which document supplies the shape**: the closest one declaring
+`{{ extends }}`; failing that, the closest one with content outside its
+sections. A document holding nothing but section declarations is a **fragment**
+— it declares content and no shape, so composing it never hands it the shape of
+the whole document. That is what `docs-only` is, and it is why `--with
+docs-only` fills a hole rather than replacing the file.
 
-Saving under a name the bundle already has a *profile* for is allowed, and
-reported. A binding outranks a profile of the same name at every lookup, so
-`cairn boot <name>` means the binding from then on; that is a fine thing to
-want and a bad thing to find out later.
+**Where the document lands** is the tree's, not the profile's. A layout
+document declares one instruction artifact — `AGENTS.md` for Claude Code,
+`.codex/AGENTS.md` in Codex's installed layer — and the rendered body goes
+there. A profile that renders no body plants no such file, because nothing in
+cairn can recognize one.
+
+**Declaring both is refused.** A body renders the instruction artifact and so
+does a `spec.templates` entry for it, so `templates: {"AGENTS.md": null}` above
+is doing real work: it removes the one `base` declares. Cairn will not pick
+which document tells an agent what it is — a rule like "the body wins" leaves
+the losing document in the profile, edited and committed and never taking
+effect.
 
 ### Templates and markers
+
+The older mechanism, and still supported: a `spec.templates` entry whose text
+carries markers, filled from `spec.slots`. It is what every profile in this
+bundle but `documentarian` uses, and it is what the section above replaces —
+a marker points at a source declared elsewhere, where a tag carries its own.
+Read this section for a bundle that has not migrated; read the one above for
+one being written now.
 
 A template is your text with markers in it. Two verbs, nothing else:
 
 ```markdown
 <!-- cairn:slot memory -->     one of spec.slots, by name
-<!-- cairn:value scope -->     one of: binding, model, profile, provider, scope, session
+<!-- cairn:value scope -->     one of: model, profile, provider, scope, session
 ```
 
 An HTML comment, so it is invisible in rendered markdown and cannot be mistaken
@@ -825,7 +870,7 @@ exactly Cairn's contract.
 So Cairn slots in as a step before the spawn:
 
 ```
-Tachyon.app  ──shell──▶  cairn boot <binding> --json  ──▶  boot dir on disk
+Tachyon.app  ──shell──▶  cairn boot <profile> --json  ──▶  boot dir on disk
      │                                                          │
      └────── spawns `claude --settings <settings_path>` with cwd = boot dir
 ```
@@ -845,9 +890,7 @@ moved. With it, stdout is one JSON object and nothing else, so
   "settings_path": "/Users/.../boot/eng/20260826T014133Z-9f2a1c/.claude/settings.json",
   "cwd_preference": "boot_dir",
   "project_dir_arg": ["--add-dir", "{{.ProjectDir}}"],
-  "home_resource_paths": null,
-  "saved_binding_path": null,
-  "saved_dropped_sets": null
+  "home_resource_paths": null
 }
 ```
 
@@ -868,7 +911,7 @@ $FLAG "$VALUE"` passes an empty argument and the launch is wrong with nothing
 reporting it, where `null` forces the consumer to decide. Keys whose values can
 be null each say something different:
 
-- `scope` — the binding declared none and no `--scope` was given.
+- `scope` — no `--scope` was given.
 - `settings_path` — the render produced no file at the harness's settings path.
   That is a real case: a profile declaring no `spec.settings` with no directory
   to grant produces none. The path is read off what the render actually
@@ -879,10 +922,6 @@ be null each say something different:
 - `home_resource_paths` — Cairn knows of no provider-home resources the launcher
   must deliberately provide when the provider home is pointed at the boot
   directory.
-- `saved_binding_path` — no `--save-as` was given.
-- `saved_dropped_sets` — no `--set` was dropped from a save, which is one
-  meaning covering both "no `--save-as`" and "a save that dropped nothing".
-  `saved_binding_path` is what separates those two states.
 
 `profile_root` is the exception: it is **never null**, which is that same rule
 applied rather than a break from it. `null` is for a value Cairn does not have,
@@ -932,18 +971,11 @@ directory and describes it; the process that has a child to put a variable into
 is the one that spawns the harness, exactly as with `--settings`. What was
 missing was never the export — it was the value.
 
-`saved_binding_path` and `saved_dropped_sets` describe a `--save-as`, which is
-the one thing `cairn boot` does that leaves nothing in the boot directory to
-read. Both used to be announced on stderr and nowhere else, so a launcher that
-composed and saved in one call had to parse a diagnostic to learn what it had
-just created.
-
-`saved_dropped_sets` names slots and never carries their values. A launcher
-that passed `--set` already holds what it typed; what it cannot otherwise know
-is which of those stopped at this run. **A refused save has no key at all**, and
-that is a decision rather than an omission: every refusal `--save-as` can raise
-is raised *before* the boot, so it exits non-zero, plants no directory and
-prints no document. `$(cairn boot x --json)` either parses or the command
+There are no saved-composition keys. `saved_binding_path` and
+`saved_dropped_sets` described a `--save-as`, which was the one thing
+`cairn boot` did that left nothing in the boot directory to read. Both retired
+with bindings: a boot writes exactly one thing now — the directory this
+document describes — so `$(cairn boot x --json)` either parses or the command
 failed, and there is one thing to check.
 
 There is no `version` field, and the rule that replaces it is: **new keys are
@@ -991,11 +1023,11 @@ Minimal Go, engine-side:
 ```go
 // Materialize a boot directory. Cairn writes files and describes them; it
 // starts nothing.
-cmd := exec.CommandContext(ctx, cairnBin, "boot", binding, "--scope", scope, "--json")
+cmd := exec.CommandContext(ctx, cairnBin, "boot", profileID, "--scope", scope, "--json")
 cmd.Stderr = os.Stderr // slot failures and diagnostics surface to the operator
 out, err := cmd.Output()
 if err != nil {
-    return fmt.Errorf("cairn boot %s: %w", binding, err)
+    return fmt.Errorf("cairn boot %s: %w", profileID, err)
 }
 var boot struct {
     BootDir       string   `json:"boot_dir"`
@@ -1004,7 +1036,7 @@ var boot struct {
     ProjectDirArg []string `json:"project_dir_arg"`
 }
 if err := json.Unmarshal(out, &boot); err != nil {
-    return fmt.Errorf("cairn boot %s: %w", binding, err)
+    return fmt.Errorf("cairn boot %s: %w", profileID, err)
 }
 
 // Tachyon spawns it. Cairn is done.
@@ -1030,7 +1062,7 @@ The same seam, one command over. Without `--json`, stdout is the document laid
 out for reading; with it, stdout is one JSON object and nothing else, and
 diagnostics still go to stderr.
 
-It exists for a launch palette. A GUI showing "what this binding already
+It exists for a launch palette. A GUI showing "what this profile already
 carries" beside an additive skill picker should source that list from `show`
 rather than reimplementing the cascade — that is what `show` is for. But `show`
 without this emits prose, so a consumer would be scraping a human-facing
@@ -1051,7 +1083,7 @@ the other command.**
   "spec": {
     "skills": {
       "value": ["code-review", "writing", "qhealth"],
-      "contributors": ["engineer", "docs-only", "binding \"eng\""]
+      "contributors": ["engineer", "docs-only", "--skill"]
     },
     "settings": {
       "value": {"env": {"CAIRN": "1"}},
@@ -1083,7 +1115,7 @@ exists — so they are one object rather than two parallel maps a consumer could
 iterate out of step.
 
 **`contributors` is per key, and it is not per member.** It says `spec.skills`
-came from the profile, a part and the binding; it does **not** say which of
+came from the profile, a part and a flag; it does **not** say which of
 them supplied the skill in front of you. That is a limit of the cascade rather
 than of this command — the second answer cannot be assembled without a second
 copy of the merge table — and a shape implying otherwise would be worse than
@@ -1091,13 +1123,12 @@ the prose, because a launcher would build a UI on it and the UI would be
 confidently wrong.
 
 Not every member is a profile id. `--skill`, `--prompt` and `--set` appear as
-they are spelled, and a binding replaying a saved composition appears as
-`binding "eng"`. **Do not resolve a member as a profile.** What these are is
+they are spelled. **Do not resolve a member as a profile.** What these are is
 what you would have to change to change the value.
 
 For the palette in particular, that answers the question the union raises:
 skills reach a boot directory from three contributors — the resolved profile,
-any part, and the binding's own skill list — and they compose as a collection
+any part, and whatever `--skill` added — and they compose as a collection
 keyed by id. `spec.skills.value` is that union already done, which is the whole
 reason to route the list through `show`.
 
@@ -1119,7 +1150,7 @@ resolve is `null` here and named there.
 
 ```bash
 SHOW="$(cairn show eng --json)"          # stdout is the object, stderr still yours
-jq -r '.spec.skills.value[]?' <<<"$SHOW" # what this binding already carries
+jq -r '.spec.skills.value[]?' <<<"$SHOW" # what this profile already carries
 jq -r '.scope // empty'       <<<"$SHOW" # empty rather than the string "null"
 ```
 

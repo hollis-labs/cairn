@@ -46,7 +46,7 @@ import (
 // nothing reports — where null forces the consumer to decide. Every key whose
 // type is a pointer or a slice can be null, and each says something different:
 // no scope was resolved, no file stands at the harness's settings path, this
-// provider needs no flag to grant a directory, no binding was saved, no --set
+// provider needs no flag to grant a directory, no --set
 // was dropped from a save. Which those are is read off the struct below rather
 // than counted here, so that adding another cannot make this paragraph wrong.
 //
@@ -121,7 +121,7 @@ type bootReport struct {
 	ProfileRoot string `json:"profile_root"`
 
 	// Scope is the directory the instance works in, absolute and symlink
-	// resolved, or null when the binding declared none and no --scope was
+	// resolved, or null when no --scope was
 	// given.
 	Scope *string `json:"scope"`
 
@@ -188,43 +188,11 @@ type bootReport struct {
 	// that ownership boundary.
 	HomeResourcePaths []string `json:"home_resource_paths"`
 
-	// SavedBindingPath is the file --save-as wrote, absolute, or null when no
-	// --save-as was given.
-	//
-	// A save is the one thing this command does that leaves nothing in the
-	// boot directory to read, and until this key it was announced on stderr
-	// and nowhere else. A launcher that composes and saves in one call would
-	// have had to parse a diagnostic to learn what it had just created —
-	// the shape this document exists to end, arriving through the other half
-	// of the same command.
-	//
-	// A path here is a file that is there. The write is the last thing before
-	// this document is built and a write that fails fails the command, so
-	// there is no state where the key names a binding that was not created.
-	//
-	// A REFUSED save has no key, and that is a decision rather than an
-	// omission. Every refusal --save-as can raise is knowable before the boot
-	// runs and is raised there — see [newBindingSave] — so a refusal exits
-	// non-zero, plants no directory and prints no document at all. There is
-	// nothing for a key to be a field of.
-	SavedBindingPath *string `json:"saved_binding_path"`
-
-	// SavedDroppedSets names the --set slots the saved binding does not carry,
-	// or null when none were dropped.
-	//
-	// Names and never values. A launcher that passed --set already holds the
-	// values; what it cannot know is which of them stopped at this run. And a
-	// --set value is content, which is the thing the bundle's shape keeps out
-	// of the catalog — reporting it here would not be that violation, but a
-	// document whose every other value is a path or a flag token is not where
-	// a paragraph of an operator's prose belongs either.
-	//
-	// Null spells both "no --save-as" and "a save that dropped nothing", and
-	// that is one meaning rather than two: there is no dropped --set for
-	// anyone to be told about. Which of the two states it was is read off
-	// SavedBindingPath, and the implication runs one way — a non-null list
-	// here guarantees a non-null path there, and never the converse.
-	SavedDroppedSets []string `json:"saved_dropped_sets"`
+	// There are no saved-composition keys. `--save-as` wrote a binding file
+	// and this document reported its path and the --set values it dropped;
+	// bindings retired, so a boot writes exactly one thing — the directory
+	// this document describes — and there is nothing else for a launcher to
+	// be told it created.
 }
 
 // projectDirPlaceholder is what a BootDirSpec's ProjectDirArg writes where the
@@ -246,9 +214,9 @@ const projectDirPlaceholder = "{{.ProjectDir}}"
 // It is still one object and nothing else, so `$(cairn boot x --json)` is
 // parseable. [json.Encoder] supplies the trailing newline that makes it a line.
 func bootDocument(dir string, layout bootdir.Layout, scopeDir, profileRoot string,
-	files []bootdir.File, save *bindingSave) (string, error) {
+	files []bootdir.File) (string, error) {
 
-	report, err := newBootReport(dir, layout, scopeDir, profileRoot, files, save)
+	report, err := newBootReport(dir, layout, scopeDir, profileRoot, files)
 	if err != nil {
 		return "", err
 	}
@@ -265,25 +233,13 @@ func bootDocument(dir string, layout bootdir.Layout, scopeDir, profileRoot strin
 // newBootReport describes one written boot directory.
 //
 // files is what [bootdir.Render] produced, which is how SettingsPath can report
-// a file that is there rather than one the layout has a path for. save is what
-// --save-as wrote, or nil when none was given.
+// a file that is there rather than one the layout has a path for.
 func newBootReport(dir string, layout bootdir.Layout, scopeDir, profileRoot string,
-	files []bootdir.File, save *bindingSave) (bootReport, error) {
+	files []bootdir.File) (bootReport, error) {
 
 	cwd, err := cwdPreferenceName(layout.CwdPreference)
 	if err != nil {
 		return bootReport{}, err
-	}
-	// A save contributes two keys or neither, and both are read off the record
-	// [newBindingSave] built rather than off anything the write returned — the
-	// same value [bindingSave.write] printed its lines from. Two readings of
-	// one save is how a document and a diagnostic start disagreeing about what
-	// was saved.
-	var savedPath *string
-	var droppedSets []string
-	if save != nil {
-		savedPath = nullable(save.path)
-		droppedSets = nonEmpty(save.dropped)
 	}
 	return bootReport{
 		BootDir:           dir,
@@ -295,8 +251,6 @@ func newBootReport(dir string, layout bootdir.Layout, scopeDir, profileRoot stri
 		ProjectDirArg:     argvTokens(layout.ProjectDirArg),
 		EnvAmendments:     nonEmpty(layout.EnvAmendments),
 		HomeResourcePaths: nonEmpty(layout.HomeResourcePaths),
-		SavedBindingPath:  savedPath,
-		SavedDroppedSets:  droppedSets,
 	}, nil
 }
 

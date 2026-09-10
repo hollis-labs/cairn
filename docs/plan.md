@@ -131,8 +131,8 @@ A profile bundle is a directory, and the directory is the whole store.
   profiles/    one markdown file per profile — YAML frontmatter, then prose
     parts/     the same, for the small reusable ones — one global id namespace,
                an organizational convention rather than a second kind
-  bindings/    one YAML file per binding, named after the binding
   templates/   the documents profiles name
+    layouts/   the documents a profile's `{{ extends }}` names
   skills/      one directory per skill
   prompts/     one flat .md file per prompt
 ```
@@ -140,8 +140,8 @@ A profile bundle is a directory, and the directory is the whole store.
 `--profile <dir>` names it; without the flag Cairn reads
 `$CAIRN_PROFILE_ROOT`, then `$XDG_CONFIG_HOME/agents`, then `~/.config/agents`.
 The whole bundle is read into memory at the start of a command and nothing is
-read after it, so a cascade, a subagent's profile and a binding's scope all
-come out of one snapshot.
+read after it, so a cascade, a subagent's profile and a layout all come out of
+one snapshot.
 
 **A bundle that is not there is named, not created**, and that is the reverse
 of the rule the database it replaces had. A database was conjured on every
@@ -161,9 +161,9 @@ a frontmatter key is a typo, and the file is now the only copy. Nothing
 downstream notices that a misspelled `descripton` left a profile with no
 description, or that a misspelled `spec` left it with no manifest at all.
 
-A profile's id is its file name and the two are held to agreeing; so is a
-binding's name. A binding naming a profile that has no file is refused when the
-bundle is read, rather than whenever somebody happens to boot that one name.
+A profile's id is its file name and the two are held to agreeing. Two files
+claiming one id are refused when the bundle is read, rather than one of them
+quietly winning.
 
 Deliberately small. The cautionary example is Nanite's `agents` table: 40-plus
 columns across 134 migrations, several deprecated but inert, entangled with
@@ -409,8 +409,8 @@ input and a caller that supplies none expands nothing rather than silently
 reaching for the process's.
 
 That is what makes `--profile <dir>` a flag and not a feature. A **profile
-bundle** is a directory holding `profiles/`, `bindings/`, `templates/` and
-`skills/`, and `--profile` seeds `$CAIRN_PROFILE_ROOT` with its root — so a
+bundle** is a directory holding `profiles/`, `templates/` and `skills/`, and
+`--profile` seeds `$CAIRN_PROFILE_ROOT` with its root — so a
 profile says `$CAIRN_PROFILE_ROOT/templates/agents.md` and the bundle relocates
 without a value being edited. Expansion did not change to allow it: the flag
 wraps the lookup the composition root already hands down, and everything below
@@ -434,7 +434,7 @@ Cairn's to vet. Symlinks are left alone, unlike a scope's: nothing compares this
 path for identity, and resolving it would put a spelling into diagnostics that
 the operator never wrote. It loses to nothing and wins over
 `$CAIRN_PROFILE_ROOT` itself, matching `--boot-root`. The bundle is also where
-the profiles and bindings come from — the catalog is the store (§3), so the
+the profiles come from — the catalog is the store (§3), so the
 directory a profile is read out of and the directory its values expand against
 are one value, resolved once.
 
@@ -490,7 +490,7 @@ single inline slot holding a whole document is valid; so is a template per
 section. Whether one of them is a shared base is the operator's convention and
 invisible to Cairn.
 
-Location: `~/.local/state/cairn/boot/<binding-or-profile>/<session>/`, or
+Location: `~/.local/state/cairn/boot/<profile>/<session>/`, or
 `$CAIRN_BOOT_ROOT` when that is set.
 Outside any repository, so there is nothing to ignore it in and nothing
 tracking it. Retention is the caller's. `cairn boot` prints the path — or, with
@@ -547,7 +547,7 @@ Two verbs, and nothing else:
 
 ```markdown
 <!-- cairn:slot memory -->     one of spec.slots, by name
-<!-- cairn:value scope -->     one of: binding, model, profile, provider, scope, session
+<!-- cairn:value scope -->     one of: model, profile, provider, scope, session
 ```
 
 The syntax is an HTML comment for four reasons. It is invisible in rendered
@@ -658,7 +658,7 @@ manifest spelled it with, and the operator's key order is kept.
 
 ### The installed layer
 
-`cairn install <binding|profile>` renders a different, shorter set into
+`cairn install <profile>` renders a different, shorter set into
 `~/.claude`:
 
 ```
@@ -919,10 +919,10 @@ installed layer already configured an MCP server.
 ## 7. Commands
 
 ```
-cairn boot <binding|profile> [--scope <path>]       materialize a boot dir, print its path
-cairn install <binding|profile>                     render the installed layer
-cairn install <binding|profile> --check             re-render, diff against disk, report drift
-cairn show <binding|profile> [--scope <path>]       print what the profile resolves to
+cairn boot <profile> [--scope <path>]               materialize a boot dir, print its path
+cairn install <profile>                             render the installed layer
+cairn install <profile> --check                     re-render, diff against disk, report drift
+cairn show <profile> [--scope <path>]               print what the profile resolves to
 cairn list                                          enumerate the catalog
 ```
 
@@ -930,8 +930,9 @@ All four take `--profile <dir>`, naming the profile bundle the catalog is read
 from and seeding `$CAIRN_PROFILE_ROOT` with its root — see §3. `show` reports
 the root as well, because it expands nothing itself.
 
-`list` prints the bindings with the directories they work in, and the profiles
-with their descriptions, each in its own block and an empty block omitted. It
+`list` prints the profiles with their descriptions, the abstract ones apart
+from them, and the layouts a profile's `{{ extends }}` can name — each in its
+own block, and an empty block omitted. It
 exists because a file-backed catalog with no way to list it is a directory the
 operator has to `ls` themselves — the answer is in no one file — and because
 the conductor profile's launch menu was a SQL query until the database went
@@ -944,7 +945,7 @@ that differs between two checkouts. `show` reports the root.
 
 `install` takes the same argument as `boot`, and there is no default. A
 well-known id like `base` would mean Cairn knowing the name of a profile it
-does not ship; a reserved binding is the same magic with indirection. Unlike
+does not ship. Unlike
 `boot`, `install` may be given an `abstract` profile — the installed layer is
 normally rendered from the abstract root of the cascade.
 
@@ -990,9 +991,9 @@ that may well not exist yet on a new machine. `--profile` follows `install`'s
 half for the same reason, one step earlier: a bundle that is not there is a
 sign cairn was pointed somewhere wrong.
 
-Profile authoring is a text editor. A profile is a file under `<bundle>/profiles`
-and a binding is a file under `<bundle>/bindings`; there is no import command
-and nothing to import into.
+Profile authoring is a text editor. A profile is a file under
+`<bundle>/profiles` and a layout is a file under `<bundle>/templates/layouts`;
+there is no import command and nothing to import into.
 
 ---
 
@@ -1005,7 +1006,7 @@ reasoning instead of by looking.
 1. **Module skeleton** — `go.mod` with the adopted modules. `cmd/cairn`
    with flag parsing that errors honestly on every unimplemented path.
 2. **Catalog** — read `<bundle>/profiles/*.md`, `<bundle>/profiles/parts/*.md`
-   and `<bundle>/bindings/*.yaml` into memory, convert each profile's YAML manifest into the JSON `spec` the
+   and `<bundle>/templates/layouts/*.md` into memory, convert each profile's YAML manifest into the JSON `spec` the
    rest of the tree decodes, and refuse a bundle that is not there. It was a
    sqlite store until the catalog replaced it; the shape of what is loaded did
    not change.

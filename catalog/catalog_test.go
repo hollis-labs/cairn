@@ -15,7 +15,7 @@ import (
 )
 
 // TestABundleIsReadWhole covers the shape of a catalog: what a profile file
-// carries and what a binding file carries.
+// carries.
 //
 // It is one test over one fixture rather than one per field, because the thing
 // being asserted is that a directory of files produces the same values the
@@ -44,9 +44,6 @@ name: Engineer
 provider: claude
 ---
 `)
-	writeFile(t, filepath.Join(root, BindingsDir, "eng.yaml"), "profile: engineer\nscope: ~/dev/projects/cairn\n")
-	writeFile(t, filepath.Join(root, BindingsDir, "loose.yaml"), "profile: engineer\nscope: /somewhere/else\n")
-
 	cat, err := Open(root)
 	if err != nil {
 		t.Fatalf("open the bundle: %v", err)
@@ -74,25 +71,6 @@ provider: claude
 
 	if got := ids(cat.Profiles()); !slices.Equal(got, []string{"base", "engineer"}) {
 		t.Errorf("Profiles() = %v, want base and engineer in order", got)
-	}
-
-	// A binding's scope is the path its file wrote, and nothing in the bundle
-	// stands between the two. Neither spelling is expanded here — `~` is
-	// boot's business, not the catalog's.
-	for _, want := range []struct{ binding, scope string }{
-		{"eng", "~/dev/projects/cairn"},
-		{"loose", "/somewhere/else"},
-	} {
-		b, err := cat.Binding(want.binding)
-		if err != nil {
-			t.Fatalf("load binding %q: %v", want.binding, err)
-		}
-		if b.ProfileID != "engineer" {
-			t.Errorf("binding %q boots %q, want engineer", want.binding, b.ProfileID)
-		}
-		if b.Scope != want.scope {
-			t.Errorf("binding %q works in %q, want %q", want.binding, b.Scope, want.scope)
-		}
 	}
 }
 
@@ -447,26 +425,6 @@ func TestADirectoryWithNoProfilesIsNotAnEmptyCatalog(t *testing.T) {
 	})
 }
 
-// TestABindingNamingNoProfileIsRefusedWhenTheBundleIsRead is the one
-// referential check the schema used to make, kept because a binding is the
-// name an operator types most and the alternative is discovering it whenever
-// somebody boots that one name.
-func TestABindingNamingNoProfileIsRefusedWhenTheBundleIsRead(t *testing.T) {
-	root := t.TempDir()
-	writeProfileFile(t, root, "engineer", "---\nid: engineer\nname: Engineer\nprovider: claude\n---\n")
-	writeFile(t, filepath.Join(root, BindingsDir, "eng.yaml"), "profile: enginer\n")
-
-	_, err := Open(root)
-	if err == nil {
-		t.Fatal("a binding naming a profile with no file was accepted")
-	}
-	for _, want := range []string{"eng.yaml", "enginer"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("the refusal does not carry %q: %v", want, err)
-		}
-	}
-}
-
 // TestAFrontmatterKeyCairnDoesNotKnowIsRefused covers the difference between
 // the frontmatter and the manifest, which is the one place this package
 // validates anything.
@@ -640,14 +598,6 @@ func TestAMissingLookupIsNamedByKind(t *testing.T) {
 	if _, err := cat.Profile(context.Background(), "nobody"); !errors.Is(err, ErrProfileNotFound) {
 		t.Errorf("Profile(nobody) = %v, want ErrProfileNotFound", err)
 	}
-	if _, err := cat.Binding("nobody"); !errors.Is(err, ErrBindingNotFound) {
-		t.Errorf("Binding(nobody) = %v, want ErrBindingNotFound", err)
-	}
-	// An absent bindings directory is legal: a bundle with profiles and
-	// nothing else boots by profile id.
-	if got := len(cat.Bindings()); got != 0 {
-		t.Errorf("a bundle with no bindings directory reported %d bindings", got)
-	}
 }
 
 // writeProfileFile writes one profile file into the bundle's profiles
@@ -790,28 +740,6 @@ func TestPartsIsReadIntoOneNamespace(t *testing.T) {
 		}
 		if _, err := cat.Profile(t.Context(), PartsDir+"/docs-only"); !errors.Is(err, ErrProfileNotFound) {
 			t.Errorf("a nested profile answered to a path-ish id: %v", err)
-		}
-	})
-
-	t.Run("a binding may name a nested profile", func(t *testing.T) {
-		// The referential check at Open reads the same map, so a binding
-		// naming a part needs nothing said about it anywhere. This is here
-		// because that check is the one place a second namespace would have
-		// had to be taught, and would not have been.
-		root := t.TempDir()
-		writePartFile(t, root, "docs-only", docsOnly)
-		writeFile(t, filepath.Join(root, BindingsDir, "docs.yaml"), "profile: docs-only\n")
-
-		cat, err := Open(root)
-		if err != nil {
-			t.Fatalf("Open: %v", err)
-		}
-		b, err := cat.Binding("docs")
-		if err != nil {
-			t.Fatalf("load the binding: %v", err)
-		}
-		if b.ProfileID != "docs-only" {
-			t.Errorf("the binding boots %q, want docs-only", b.ProfileID)
 		}
 	})
 

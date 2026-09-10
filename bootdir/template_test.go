@@ -535,7 +535,7 @@ func TestValueNamesIsClosedAndSorted(t *testing.T) {
 	if !slices.IsSorted(names) {
 		t.Errorf("ValueNames() = %v, which is not sorted", names)
 	}
-	want := []string{"binding", "model", "profile", "provider", "scope", "session"}
+	want := []string{"model", "profile", "provider", "scope", "session"}
 	if !slices.Equal(names, want) {
 		t.Errorf("ValueNames() = %v, want %v", names, want)
 	}
@@ -545,9 +545,12 @@ func TestValueNamesIsClosedAndSorted(t *testing.T) {
 	if ValueNames()[0] == "rewritten" {
 		t.Error("ValueNames() returns a slice a caller can rewrite")
 	}
-	// Deliberately absent, and each for its own reason: both are absolute
-	// paths into one machine rather than facts about a profile.
-	for _, absent := range []string{"boot_dir", "home"} {
+	// Deliberately absent, and each for its own reason. boot_dir and home are
+	// absolute paths into one machine rather than facts about a profile.
+	// binding named the saved composition a boot was reached by, and bindings
+	// retired — launch-time assembly belongs to the launcher, so there is no
+	// such name for cairn to fill.
+	for _, absent := range []string{"boot_dir", "home", "binding"} {
 		if slices.Contains(ValueNames(), absent) {
 			t.Errorf("ValueNames() carries %q", absent)
 		}

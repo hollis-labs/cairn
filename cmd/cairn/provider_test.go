@@ -310,7 +310,6 @@ func seedCodexable(t *testing.T, bundle, scopeDir string) {
 		},
 	})
 	writeProfile(t, bundle, bundleProfile{ID: "coder", Extends: "base", Name: "Coder"})
-	writeBinding(t, bundle, "coder", "coder", scopeDir)
 }
 
 // bootInto runs one boot into a session of its own and returns the directory

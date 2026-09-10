@@ -83,73 +83,37 @@ type composition struct {
 	prompts idList
 	sets    slotList
 
-	// fromBinding is how many leading entries of with, skills and prompts the
-	// binding contributed rather than the command line. See
-	// [composition.replay].
-	fromBinding struct{ parts, skills, prompts int }
-
-	// binding is the name of the binding those entries came from, for the
-	// diagnostics that have to say where a part nobody typed came from.
-	binding string
-
 	// named maps the id a part was loaded under back to how a diagnostic
-	// should refer to it: the --with the operator typed, or the binding that
-	// carried it. The id and the written form differ for a path — the id is
-	// the expansion — and a diagnostic quotes what was written, so the pair is
-	// kept here rather than reconstructed by whoever needs to name one.
+	// should refer to it: the --with the operator typed. The id and the
+	// written form differ for a path — the id is the expansion — and a
+	// diagnostic quotes what was written, so the pair is kept here rather
+	// than reconstructed by whoever needs to name one.
+	//
+	// Every entry is now a flag the operator typed. It used to be either that
+	// or a part a replayed binding carried, and the whole of the bookkeeping
+	// that told the two apart — how many leading entries came from where, and
+	// which binding they came from — retired with bindings: a composition is
+	// what the terminal said, and there is nothing else for it to have come
+	// from.
 	named map[string]string
 }
 
-// replay puts the composition a binding saved ahead of the one typed at the
-// terminal.
-//
-// Ahead, because the terminal has the last word. Everything else in cairn
-// resolves closest-wins with the operator's own flags last — the extends
-// chain, then each --with in order, then --skill, then --set — and a binding
-// is a saved composition rather than a fourth kind of thing. So booting a
-// saved binding and typing what it holds are the same resolution, which is
-// what makes --save-as a round trip rather than an approximation.
-//
-// It records where each entry came from because the diagnostics do. A part a
-// binding names can be absorbed by the chain, or name a profile the bundle no
-// longer holds, and telling the operator to look at a --with they never typed
-// would send them to the wrong file.
-func (c *composition) replay(t bootTarget) {
-	c.binding = t.name
-	if len(t.parts) > 0 {
-		c.with = append(append(partList{}, t.parts...), c.with...)
-		c.fromBinding.parts = len(t.parts)
-	}
-	if len(t.skills) > 0 {
-		c.skills = append(append(idList{}, t.skills...), c.skills...)
-		c.fromBinding.skills = len(t.skills)
-	}
-	if len(t.prompts) > 0 {
-		c.prompts = append(append(idList{}, t.prompts...), c.prompts...)
-		c.fromBinding.prompts = len(t.prompts)
-	}
-}
-
 // partAt names the part at index i of with the way a diagnostic should: the
-// flag the operator typed, or the binding that carried a part they did not.
+// flag the operator typed.
 //
-// The two spellings differ in one thing only, which is what the reader would
-// have to change to change the value. Everything downstream prints whichever
-// of them it is handed and knows about neither.
+// It is a function rather than a field read because it used to have two
+// answers — the flag, or the binding that carried a part nobody typed — and
+// the callers print whichever they are handed and know about neither. Keeping
+// the seam is what makes a second source, if one ever returns, a change here
+// and nowhere else.
 func (c *composition) partAt(i int) string {
-	if i < c.fromBinding.parts {
-		return fmt.Sprintf("binding %q: part %s", c.binding, c.with[i])
-	}
 	return "--with " + c.with[i]
 }
 
 // sourceOf names where the part at index i came from, without the value: the
 // diagnostic it serves goes on to name the value itself, and saying it twice
 // in one sentence reads as two different values.
-func (c *composition) sourceOf(i int) string {
-	if i < c.fromBinding.parts {
-		return fmt.Sprintf("binding %q", c.binding)
-	}
+func (c *composition) sourceOf(int) string {
 	return "--with"
 }
 
@@ -158,24 +122,8 @@ func (c *composition) sourceOf(i int) string {
 // whose emptiness after expansion, is the thing being reported reads as
 // nothing at all unquoted.
 func (c *composition) partAtQuoted(i int) string {
-	if i < c.fromBinding.parts {
-		return fmt.Sprintf("binding %q: part %q", c.binding, c.with[i])
-	}
 	return fmt.Sprintf("--with %q", c.with[i])
 }
-
-// savedParts, savedSkills and savedPrompts are the composition as --save-as
-// records it: what
-// a binding already carried, followed by what was typed onto it, each as it
-// was written.
-//
-// They are the same slices the resolution walks, which is the point — a
-// binding saved from a boot of another binding composes what that boot
-// composed, and there is no second idea of "the composition" for the two to
-// disagree about.
-func (c *composition) savedParts() []string   { return []string(c.with) }
-func (c *composition) savedSkills() []string  { return []string(c.skills) }
-func (c *composition) savedPrompts() []string { return []string(c.prompts) }
 
 // bind registers the composition's flags on fs — one per field, and this list
 // is the only place their number is written down.
@@ -229,21 +177,11 @@ func (c *composition) reportAbsorbedParts(stderr io.Writer, resolved *profile.Re
 // would have to change to change the value.
 func (c *composition) contributors() map[string][]string {
 	out := map[string][]string{}
-	// A binding contributes skills the same way the flag does and is named
-	// the same way, because it is the same question: a reader asking who put
-	// this skill here has to be sent to the file they would edit, and for a
-	// replayed binding that file is not the profile and there is no flag.
-	if n := c.fromBinding.skills; n > 0 {
-		out[profile.SpecKeySkills] = []string{fmt.Sprintf("binding %q", c.binding)}
+	if len(c.skills) > 0 {
+		out[profile.SpecKeySkills] = []string{"--skill"}
 	}
-	if len(c.skills) > c.fromBinding.skills {
-		out[profile.SpecKeySkills] = append(out[profile.SpecKeySkills], "--skill")
-	}
-	if n := c.fromBinding.prompts; n > 0 {
-		out[profile.SpecKeyPrompts] = []string{fmt.Sprintf("binding %q", c.binding)}
-	}
-	if len(c.prompts) > c.fromBinding.prompts {
-		out[profile.SpecKeyPrompts] = append(out[profile.SpecKeyPrompts], "--prompt")
+	if len(c.prompts) > 0 {
+		out[profile.SpecKeyPrompts] = []string{"--prompt"}
 	}
 	if len(c.sets) > 0 {
 		out[profile.SpecKeySlots] = []string{"--set"}
@@ -399,8 +337,8 @@ func hintBareID(ctx context.Context, cat *catalog.Catalog, path string, err erro
 
 // nameOnce records how to refer to a part, keeping the first spelling.
 //
-// One id can arrive twice — a binding names a part and the operator names it
-// again — and the fold keeps it where it first landed, which is the binding's
+// One id can arrive twice — the operator names the same part twice — and the
+// fold keeps it where it first landed, which is the earlier flag's
 // position. So the first spelling is the one that describes what happened, and
 // the later write would replace a correct answer with a plausible one.
 func nameOnce(named map[string]string, id, as string) {
@@ -522,17 +460,15 @@ func (l *idList) Set(v string) error {
 // landed at.
 //
 // One id arrives twice the ordinary way, which is the way --skill exists for:
-// a binding declares a skill and the operator names it again, because "boot
-// this binding, and make sure x is on" is a thing to type without first
-// reading what the binding holds — and not having to know that is the whole
-// point of the flag. Two --skill values naming one id are the same collision
-// typed in one go.
+// "boot this profile, and make sure x is on" is a thing to type without first
+// reading what the profile holds, and not having to know that is the whole
+// point of the flag. Two --skill values naming one id, and one comma-separated
+// value naming it twice, are the same collision.
 //
-// So this is [nameOnce]'s rule over the other collection a binding and a flag
-// both contribute to, and it keeps the first for the reason nameOnce does: the
-// earlier entry is where the composition put the id — the binding's position,
-// ahead of the terminal — and moving it to the end because the operator
-// restated it would report a position nothing chose.
+// So this is [nameOnce]'s rule over the other collection the flags contribute
+// to, and it keeps the first for the reason nameOnce does: the earlier entry
+// is where the composition put the id, and moving it to the end because the
+// operator restated it would report a position nothing chose.
 //
 // The fold is here rather than downstream because downstream is right as it
 // is. [profile.Merge] already folds these keys, a member being its own key,

@@ -179,18 +179,20 @@ func TestShow(t *testing.T) {
 		// path, and on macOS the test's own temp root is behind one.
 		declared := canonical(t, scopeDir)
 
-		// The binding declares it, so showing the binding shows it.
-		out, _ := show(t, "engineer")
+		// The flag declares it, and the flag is the only source there is: a
+		// binding used to carry a default and showing the bare name reported
+		// it. Bindings retired, so a scope belongs to the launch.
+		out, _ := show(t, "engineer", "--scope", scopeDir)
 		if !strings.Contains(out, "scope         "+declared+"\n") {
-			t.Errorf("the binding's scope is not reported as %s:\n%s", declared, out)
+			t.Errorf("the scope given is not reported as %s:\n%s", declared, out)
 		}
-		// A profile with no binding declares none, and the field says so by
-		// carrying nothing.
+		// With no flag there is no scope, and the field says so by carrying
+		// nothing.
 		out, _ = show(t, "base")
 		if !strings.Contains(out, "\nscope\n") {
-			t.Errorf("a profile with no declared scope reports one anyway:\n%s", out)
+			t.Errorf("a profile with no --scope reports one anyway:\n%s", out)
 		}
-		// --scope overrides the binding's, exactly as it does for a boot.
+		// A second --scope is the same one flag, reported the same way.
 		other := filepath.Join(home, "elsewhere")
 		mustMkdir(t, other)
 		out, _ = show(t, "engineer", "--scope", other)
@@ -482,8 +484,8 @@ func TestShowJSON(t *testing.T) {
 	})
 
 	t.Run("a value cairn does not have is null", func(t *testing.T) {
-		// base declares no description and has no binding, so two of the keys
-		// above are absent values rather than empty ones. Asserted on the
+		// base declares no description and no --scope was given, so two of the
+		// keys above are absent values rather than empty ones. Asserted on the
 		// printed bytes as well as the decoded struct, because "" and null
 		// both decode a *string the test would then have to distinguish.
 		report, out, _ := showJSON(t, "base")
@@ -508,7 +510,7 @@ func TestShowJSON(t *testing.T) {
 	})
 
 	t.Run("the scalar fields say what the document says", func(t *testing.T) {
-		report, _, _ := showJSON(t, "engineer")
+		report, _, _ := showJSON(t, "engineer", "--scope", scopeDir)
 		if report.Profile != "engineer" {
 			t.Errorf("profile is %q, want engineer", report.Profile)
 		}
@@ -553,7 +555,7 @@ func TestShowJSON(t *testing.T) {
 		if err != nil {
 			t.Fatalf("show engineer: %v", err)
 		}
-		report, _, _ := showJSON(t, "engineer")
+		report, _, _ := showJSON(t, "engineer", "--scope", scopeDir)
 		if len(report.Spec) == 0 {
 			t.Fatal("show engineer --json carried an empty manifest")
 		}

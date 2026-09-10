@@ -1,5 +1,0 @@
-# A binding is a name plus a default scope, and the scope is a directory path.
-# `~` is expanded and a relative path is anchored to wherever the command was
-# typed, so a binding meant to work from anywhere writes one of the first two.
-profile: engineer
-scope: ~/dev/projects/cairn

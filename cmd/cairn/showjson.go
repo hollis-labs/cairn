@@ -85,9 +85,9 @@ const showJSONFlagUsage = "print one JSON object describing what the target reso
 // wanted it is a change to the cascade and a separate task.
 type showReport struct {
 	// Profile is the profile the cascade was resolved for — the leaf of the
-	// chain, and the id the target resolved to. A binding's own name is not
-	// reported, for the reason the prose document does not report it: nothing
-	// here is named after anything.
+	// chain, and the id the target resolved to. Nothing here is named after
+	// anything, which is why there is one id and not two: the target IS the
+	// profile, where it used to be a binding name that resolved to one.
 	Profile string `json:"profile"`
 
 	// Chain is every profile id the cascade folded, ancestor-first, with
@@ -110,10 +110,10 @@ type showReport struct {
 	// says anything.
 	//
 	// It is the target and not the declaration, for the reason [showReport].
-	// Scope is what a boot would work in rather than what the binding wrote
-	// down: this command is the preview of a boot, and a preview that reported
-	// the profile's own answer to a question the operator had just overridden
-	// would be answering a different question than the one they asked.
+	// Scope is what a boot would work in: this command is the preview of a
+	// boot, and a preview that reported the profile's own answer to a question
+	// the operator had just answered with a flag would be answering a
+	// different question than the one they asked.
 	//
 	// Nullable where [bootReport.Provider] is a plain string, and the two are
 	// consistent rather than in conflict: a boot refuses a target that is not
@@ -133,8 +133,8 @@ type showReport struct {
 	Abstract bool `json:"abstract"`
 
 	// Scope is the directory a boot of this target would work in, absolute and
-	// symlink-resolved, or null when the binding declared none, no --scope was
-	// given, or the one that was given did not resolve.
+	// symlink-resolved, or null when no --scope was given or the one that was
+	// given did not resolve.
 	//
 	// The last of those three is why the stderr line survives --json. A scope
 	// that did not resolve is reported there and null here, exactly as the
@@ -195,14 +195,12 @@ type specEntry struct {
 	Value json.RawMessage `json:"value"`
 
 	// Contributors names who declared this key: the profiles in the chain that
-	// declare it, ancestor-first, followed by any flag or binding that
-	// contributed to it.
+	// declare it, ancestor-first, followed by any flag that contributed to it.
 	//
 	// Not every member is a profile id, and the list is one list for the
 	// reason the prose prints one column. A key can be declared by a profile
 	// and then added to by something that is not one: "--skill", "--prompt"
-	// and "--set" appear as they are spelled, and a binding replaying a saved
-	// composition appears as `binding "name"`. A consumer must not assume a
+	// and "--set" appear as they are spelled. A consumer must not assume a
 	// member resolves as a profile — what these are is what a reader would
 	// have to change to change the value, which is the question the column
 	// answers.

@@ -125,11 +125,11 @@ func runShow(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		target = fs.Arg(0)
 	} else if fs.NArg() > 0 {
 		_, _ = fmt.Fprint(stderr, usage)
-		return fmt.Errorf("show takes one binding or profile, and was given %q as well", fs.Arg(0))
+		return fmt.Errorf("show takes one profile, and was given %q as well", fs.Arg(0))
 	}
 	if target == "" || fs.NArg() > 1 {
 		_, _ = fmt.Fprint(stderr, usage)
-		return errors.New("show takes exactly one binding or profile")
+		return errors.New("show takes exactly one profile")
 	}
 
 	home, _ := os.UserHomeDir()
@@ -143,8 +143,7 @@ func runShow(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	//
 	// A --profile that names nothing is refused, which is the opposite of what
 	// an unresolvable --scope gets. The two are refused for different reasons.
-	// A scope may arrive from the binding, written by an operator who is not
-	// the one running this command, and refusing the whole document over it
+	// A scope is one reported fact, and refusing the whole document over it
 	// makes show least usable exactly when something is already wrong. The
 	// bundle is the document.
 	bundle, err := bundleRoot(*profileFlag, home)
@@ -157,20 +156,15 @@ func runShow(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		return err
 	}
 
-	tgt, err := lookup(ctx, cat, target)
+	profileID, err := profileTarget(ctx, cat, target)
 	if err != nil {
 		return err
 	}
-	// The binding's own composition is replayed here for the reason this
-	// command takes --with at all: show is the preview of what boot will
-	// resolve to, and a preview blind to the parts a binding names would be
-	// blind to exactly the thing that makes a binding differ from its profile.
-	compose.replay(tgt)
 	// The loader is kept, not discarded: a part read from a file is not in the
 	// catalog, and [declaringProfiles] re-reads every profile in the chain to
 	// say which of them declared each key. Handing it the catalog instead
 	// would fail on exactly the composition this command exists to preview.
-	resolved, loader, err := compose.resolve(ctx, cat, home, environment(bundle), tgt.profileID)
+	resolved, loader, err := compose.resolve(ctx, cat, home, environment(bundle), profileID)
 	if err != nil {
 		return err
 	}
@@ -183,18 +177,13 @@ func runShow(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	// substituted at boot, not a thing the cascade composes. So the flag is
 	// kept by making the scope one of the reported facts rather than an input
 	// to them: what `cairn boot <target>` would work in, resolved through the
-	// same path runBoot resolves it through, with --scope overriding the
-	// binding's exactly as it does there. A flag that takes a value and
+	// same path runBoot resolves it through. A flag that takes a value and
 	// changes no output is worse than no flag.
 	//
-	// The binding's own name is not reported. lookup returns it and runBoot
-	// needs it to name a directory; nothing here is named after anything, and
-	// the profile line already says what the target resolved to.
-	rawScope := tgt.scope
-	if strings.TrimSpace(*scopeFlag) != "" {
-		rawScope = *scopeFlag
-	}
-	scopeDir, err := scope.Parse(rawScope, home)
+	// The flag is the scope's only source, here as in runBoot. A binding used
+	// to carry a default and --scope used to override it; bindings retired,
+	// so a scope belongs to the launch and there is nothing to override.
+	scopeDir, err := scope.Parse(strings.TrimSpace(*scopeFlag), home)
 	if err != nil {
 		// Reported, not refused, and the rule it follows is the slot rule: a
 		// resolution that fails costs the reader one fact, and a command that
@@ -211,7 +200,8 @@ func runShow(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		//
 		// The declared value leads the line, ahead of the error that names
 		// what it expanded to, for the reason reportSlotFailures puts it there.
-		_, _ = fmt.Fprintf(stderr, "cairn: scope %q did not resolve, so none is reported: %v\n", rawScope, err)
+		_, _ = fmt.Fprintf(stderr, "cairn: scope %q did not resolve, so none is reported: %v\n",
+			strings.TrimSpace(*scopeFlag), err)
 		scopeDir = ""
 	}
 
@@ -316,12 +306,17 @@ func declaringProfiles(ctx context.Context, l profile.Loader, resolved *profile.
 // by position to record that it gained a second source would cost more than it
 // said.
 //
-// Resolved.Body is the field left out, and it is left out rather than
-// forgotten. It is the one thing the cascade concatenates instead of composing
-// by key — see profile.Resolve — so it is not what the merge rule made
-// unreadable, and it is a whole persona long: printing it would bury the
-// manifest this command exists to show. `cairn boot` renders it, which is
-// where it is read.
+// Resolved.Bodies is the field left out, and it is left out rather than
+// forgotten: a body is a whole persona long, and printing the chain of them
+// would bury the manifest this command exists to show. `cairn boot` renders
+// them, into the instruction artifact the tree names — see
+// bootdir.instructionFile.
+//
+// This paragraph used to say `cairn boot` rendered a concatenated Body, and
+// that was false: nothing rendered it, in either layer, and a profile's prose
+// was read, folded and dropped. The claim outlived the behaviour it described
+// because the field existed and looked used. Verified empirically before it
+// was fixed, and now covered by a test that boots a profile with a body.
 //
 // The chain is the fold order, and it is printed because precedence is what a
 // reader checks a composition for: the parts a --with added stand after the

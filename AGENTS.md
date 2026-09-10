@@ -7,7 +7,7 @@ does not launch, monitor, track, control or grant authority to agents.
 ## Start Here
 
 - `doc.go` and `examples/README.md` define the public shape.
-- `catalog/` reads bundles, profiles and bindings.
+- `catalog/` reads bundles, profiles and layouts.
 - `profile/resolve.go` and `profile/merge.go` own composition order and merge
   rules.
 - `bootdir/layouts/*.yaml` is one document per harness: every path a harness

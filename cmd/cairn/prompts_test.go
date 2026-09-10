@@ -95,42 +95,6 @@ func TestAPromptIsPlantedAsACommandTheOperatorCanType(t *testing.T) {
 	})
 }
 
-// TestPromptsSurviveSaveAsAndReplay is the round trip: a --prompt typed once
-// is a binding that plants the same command by name.
-//
-// The assertion is on the two trees rather than on the binding file alone.
-// A binding that recorded the key and a replay that ignored it would leave the
-// file looking right and the boot directory missing a command, which is the
-// half an operator would find by typing /boot:reset-scope and being told it
-// does not exist.
-func TestPromptsSurviveSaveAsAndReplay(t *testing.T) {
-	ctx := context.Background()
-	home := t.TempDir()
-	bundle := exampleBundle(t, home)
-	scopeDir := filepath.Join(home, "scope")
-	mustMkdir(t, scopeDir)
-
-	typed := bootTree(t, ctx, filepath.Join(home, "typed"),
-		"engineer",
-		"--profile", bundle,
-		"--prompt", "reset-scope",
-		"--scope", scopeDir,
-		"--save-as", "handy",
-	)
-	saved := read(t, bundle, "bindings/handy.yaml")
-	if !strings.Contains(saved, "prompts:\n  - reset-scope\n") {
-		t.Fatalf("the binding does not carry the prompt that was typed:\n%s", saved)
-	}
-
-	replayed := bootTree(t, ctx, filepath.Join(home, "replayed"), "handy", "--profile", bundle)
-	// Every file, not only the commands: a replay that planted the prompt and
-	// dropped something else is not a round trip either.
-	diffTrees(t, typed, replayed)
-	if _, ok := replayed[resetCommand]; !ok {
-		t.Errorf("the replayed boot did not plant the binding's prompt; it holds %v", sortedPaths(replayed))
-	}
-}
-
 // TestComposePrompt covers the flag itself, in the shape --skill is covered:
 // the two spellings compose, the contribution is additive and by id, and a
 // value naming nothing is refused rather than ignored.
@@ -179,39 +143,19 @@ func TestComposePrompt(t *testing.T) {
 	})
 }
 
-// TestInstallSaysItRendersNoPrompts pins the deliberate omission out loud.
+// There is no TestInstallSaysItRendersNoPrompts. The line it pinned said how
+// many parts, skills and prompts the binding being installed composed and that
+// install rendered none of them — a diagnostic that existed because `cairn boot
+// <binding>` and `cairn install <binding>` took the same argument and did
+// different things with its composition.
 //
-// install renders the machine-wide layer, and a prompt is a per-launch choice,
-// so the installed layer carries none — the flag is not registered and the
-// binding's own prompts are not replayed. Saying so is what keeps an operator
-// comparing `cairn boot <binding>` with `cairn install <binding>` from reading
-// a decision as a bug.
-func TestInstallSaysItRendersNoPrompts(t *testing.T) {
-	ctx := context.Background()
-	home := t.TempDir()
-	bundle := exampleBundle(t, home)
-	writeFile(t, filepath.Join(bundle, "bindings", "handy.yaml"),
-		"profile: engineer\nprompts:\n  - reset-scope\n", 0o644)
-
-	root := filepath.Join(home, "root")
-	mustMkdir(t, root)
-
-	var stdout, stderr bytes.Buffer
-	err := runInstall(ctx, []string{"handy", "--profile", bundle, "--root", root}, &stdout, &stderr)
-	if err != nil {
-		t.Fatalf("install: %v\nstderr: %s", err, stderr.String())
-	}
-	if got := stderr.String(); !strings.Contains(got, "prompt(s)") {
-		t.Errorf("install did not say it renders none of the binding's prompts:\n%s", got)
-	}
-
-	// That --prompt is not registered on install is asserted by
-	// TestInstallDoesNotCompose, which is the table for that claim and passes
-	// --root. It is deliberately NOT re-asserted here: runInstall with no
-	// --root falls through to the operator's home directory, so a second copy
-	// of the claim would overwrite the developer's live ~/.claude on the day
-	// the claim stopped being true — which is the day the test exists for.
-}
+// Bindings retired. install takes a profile, a profile carries no composition,
+// and there is nothing for the command to be silent about. That `--prompt` is
+// not registered on install is asserted by TestInstallDoesNotCompose, which is
+// the table for that claim and passes --root — deliberately not re-asserted
+// here, because runInstall with no --root falls through to the operator's home
+// directory, so a second copy of the claim would overwrite the developer's
+// live ~/.claude on the day the claim stopped being true.
 
 // promptsOf reads the composed prompt ids out of a show document.
 func promptsOf(t *testing.T, out string) []string {

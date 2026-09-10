@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -511,8 +510,7 @@ func TestMergeSkillsIsTheCascadesOwnRule(t *testing.T) {
 }
 
 // TestAFlagMayNameWhatTheCompositionAlreadyCarries covers the collision the
-// flags exist to make cheap: a binding declares a skill, and the operator names
-// it again because they did not read the binding first.
+// flags exist to make cheap: one command naming an id twice.
 //
 // It is asserted against a target that declares neither key, which is the shape
 // that used to refuse. A merger only runs on two declared values, so a profile
@@ -523,6 +521,13 @@ func TestMergeSkillsIsTheCascadesOwnRule(t *testing.T) {
 //
 // Both flags, because they are one flag over two keys and a fold written for
 // one of them would leave the other refusing.
+//
+// It used to have two more subtests, in which a BINDING carried the ids and the
+// operator restated one. That path is gone with bindings, and it was the
+// sharper half: a binding prepended to the flag's own list, so its ids reached
+// the fold unread by the cascade. What survives — one command, the id twice —
+// goes through the same fold on the same unread list, which is why the claim is
+// still covered rather than merely still true.
 func TestAFlagMayNameWhatTheCompositionAlreadyCarries(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()
@@ -534,31 +539,13 @@ func TestAFlagMayNameWhatTheCompositionAlreadyCarries(t *testing.T) {
 	// directories and nothing that names a skill or a prompt.
 	writeFile(t, filepath.Join(bundle, "profiles", "bare.md"),
 		"---\nid: bare\nextends: base\nname: Bare\n---\n", 0o644)
-	// Two of each, so the fold has a position to get wrong as well as a
-	// duplicate to remove.
-	writeFile(t, filepath.Join(bundle, "bindings", "bare-binding.yaml"),
-		"profile: bare\n"+
-			"skills:\n  - capture-decision\n  - adr\n"+
-			"prompts:\n  - handoff\n  - reset-scope\n"+
-			fmt.Sprintf("scope: %s\n", scopeDir), 0o644)
 
-	t.Run("a binding's id restated by the flag lands once, where it was", func(t *testing.T) {
-		out := mustShow(t, ctx, bundle, "bare-binding",
-			"--skill", "capture-decision", "--prompt", "handoff")
-		// Once, and still first: the binding put it there, and the operator
-		// restating it is not a request to move it behind the id it precedes.
-		if got := skillsOf(t, out); !slicesEqual(got, []string{"capture-decision", "adr"}) {
-			t.Errorf("the composed skills are %v, want the binding's folded once and in place", got)
-		}
-		if got := promptsOf(t, out); !slicesEqual(got, []string{"handoff", "reset-scope"}) {
-			t.Errorf("the composed prompts are %v, want the binding's folded once and in place", got)
-		}
-	})
-
-	t.Run("and the boot it used to refuse plants each once", func(t *testing.T) {
+	t.Run("the boot it used to refuse plants each once", func(t *testing.T) {
 		// bootTree fails the test if the boot refuses, which is the claim.
-		tree := bootTree(t, ctx, filepath.Join(home, "runtime"), "bare-binding",
-			"--profile", bundle, "--skill", "capture-decision", "--prompt", "handoff")
+		tree := bootTree(t, ctx, filepath.Join(home, "runtime"), "bare",
+			"--profile", bundle, "--scope", scopeDir,
+			"--skill", "capture-decision,adr", "--skill", "capture-decision",
+			"--prompt", "handoff,reset-scope", "--prompt", "handoff")
 		for _, rel := range []string{
 			".claude/skills/capture-decision/SKILL.md",
 			".claude/skills/adr/SKILL.md",
@@ -1201,9 +1188,8 @@ func TestANestedProfileIsAnOrdinaryProfile(t *testing.T) {
 	writeSkill(t, skillsDir)
 	seed(t, bundle, skillsDir, scopeDir)
 
-	// The part's own skill, on disk: --save-as boots before it saves, and a
-	// boot renders spec.skills into the directory rather than taking the
-	// profile's word for it.
+	// The part's own skill, on disk: a boot renders spec.skills into the
+	// directory rather than taking the profile's word for it.
 	mustMkdir(t, filepath.Join(skillsDir, "docs-review"))
 	writeFile(t, filepath.Join(skillsDir, "docs-review", "SKILL.md"), "# docs review\n", 0o644)
 
@@ -1235,58 +1221,6 @@ func TestANestedProfileIsAnOrdinaryProfile(t *testing.T) {
 		}
 		if got := skillsOf(t, out); !slicesEqual(got, []string{"code-review", "docs-review"}) {
 			t.Errorf("the composed skills are %v, want the profile's and the part's", got)
-		}
-	})
-
-	t.Run("a binding names it, and boots it", func(t *testing.T) {
-		// Both positions, because they are checked in different places: the
-		// profile key is verified when the bundle is read, and a part is
-		// resolved during the composition.
-		writeBinding(t, bundle, "docs-direct", "docs-only", scopeDir)
-		out := mustShow(t, ctx, bundle, "docs-direct")
-		if !strings.Contains(out, "profile       docs-only") {
-			t.Errorf("a binding does not boot a nested profile:\n%s", out)
-		}
-
-		writeFile(t, filepath.Join(bundle, "bindings", "docs.yaml"),
-			"profile: engineer\nparts:\n  - docs-only\n", 0o644)
-		out = mustShow(t, ctx, bundle, "docs")
-		if !strings.Contains(out, "chain         base -> engineer -> docs-only") {
-			t.Errorf("a binding's part did not resolve to the nested profile:\n%s", out)
-		}
-	})
-
-	t.Run("--save-as records it by id, and the binding replays", func(t *testing.T) {
-		// The rule --save-as enforces is that a composition holding a PATH is
-		// refused, because a binding must be reproducible by name. A nested
-		// profile is the case that rule was leaving stranded: it is catalogued
-		// content that used to have no spelling but a path.
-		t.Setenv("CAIRN_BOOT_ROOT", t.TempDir())
-		var stdout, stderr bytes.Buffer
-		err := run(ctx, []string{
-			"boot", "engineer", "--profile", bundle, "--scope", scopeDir,
-			"--with", "docs-only", "--save-as", "saved",
-		}, &stdout, &stderr)
-		if err != nil {
-			t.Fatalf("boot --save-as: %v\nstderr: %s", err, stderr.String())
-		}
-		saved, readErr := os.ReadFile(filepath.Join(bundle, "bindings", "saved.yaml"))
-		if readErr != nil {
-			t.Fatalf("read the saved binding: %v", readErr)
-		}
-		got := string(saved)
-		if !strings.Contains(got, "parts:\n    - docs-only\n") &&
-			!strings.Contains(got, "parts:\n  - docs-only\n") {
-			t.Errorf("the saved binding does not name the part by id:\n%s", got)
-		}
-		// The one spelling that must NOT appear: a path to the file. That is
-		// what --save-as refuses, and a nested part reached by id is how the
-		// same content is saved instead.
-		if strings.Contains(got, catalog.PartsDir+"/") {
-			t.Errorf("the saved binding recorded a path:\n%s", got)
-		}
-		if out := mustShow(t, ctx, bundle, "saved"); !strings.Contains(out, "-> docs-only") {
-			t.Errorf("the saved binding did not replay the part:\n%s", out)
 		}
 	})
 

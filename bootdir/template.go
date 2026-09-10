@@ -86,8 +86,15 @@ type Marker struct {
 // Both are absolute paths into one machine rather than facts about a profile,
 // and the first is the directory the file is being written into, which whatever
 // reads it already knows.
+//
+// Also absent, and this one left: `binding`. It named the saved composition a
+// boot was reached by, and bindings retired — launch-time assembly belongs to
+// the launcher, so there is no such name for cairn to fill. A template still
+// naming it renders nothing and is reported, which is exactly the degrade this
+// function's own argument asks for: a template outlives the set of values any
+// one build fills, in both directions.
 func ValueNames() []string {
-	return []string{"binding", "model", "profile", "provider", "scope", "session"}
+	return []string{"model", "profile", "provider", "scope", "session"}
 }
 
 // fills reports whether name is one cairn populates.

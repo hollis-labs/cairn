@@ -38,9 +38,14 @@ func TestBootEndToEnd(t *testing.T) {
 	seed(t, bundle, skillsDir, scopeDir)
 
 	var stdout, stderr bytes.Buffer
+	// --scope is passed, and it is the only source there is. A binding named
+	// "engineer" used to carry this directory and booting the bare name
+	// replayed it; bindings retired, so a scope belongs to the launch and the
+	// flag is how a launch says it.
 	err := run(ctx, []string{
 		"boot", "engineer",
 		"--profile", bundle,
+		"--scope", scopeDir,
 		"--boot-root", bootRoot,
 		"--session", "s1",
 	}, &stdout, &stderr)
@@ -193,6 +198,7 @@ func TestBootJSONDescribesTheBootForALauncher(t *testing.T) {
 	err := run(ctx, []string{
 		"boot", "engineer",
 		"--profile", bundle,
+		"--scope", scopeDir,
 		"--boot-root", bootRoot,
 		"--session", "s1",
 		"--json",
@@ -213,17 +219,15 @@ func TestBootJSONDescribesTheBootForALauncher(t *testing.T) {
 
 	// The key set is the contract. A key that came and went would make a
 	// consumer handle two shapes for one meaning.
-	want := []string{"boot_dir", "cwd_preference", "env_amendments", "home_resource_paths", "profile_root", "project_dir_arg", "provider",
-		"saved_binding_path", "saved_dropped_sets", "scope", "settings_path"}
+	//
+	// "saved_binding_path" and "saved_dropped_sets" left it, with `--save-as`
+	// and with bindings. That is a contract change and not a key coming and
+	// going: a boot writes exactly one thing now, and a launcher has nothing
+	// else to be told it created.
+	want := []string{"boot_dir", "cwd_preference", "env_amendments", "home_resource_paths",
+		"profile_root", "project_dir_arg", "provider", "scope", "settings_path"}
 	if got := slices.Sorted(maps.Keys(raw)); !slices.Equal(got, want) {
 		t.Errorf("the document carries %v, want exactly %v", got, want)
-	}
-	// The two --save-as keys are emitted on a boot that saved nothing, which
-	// is the half of "every key on every boot" a conditional would break.
-	for _, key := range []string{"saved_binding_path", "saved_dropped_sets"} {
-		if got := string(raw[key]); got != "null" {
-			t.Errorf("%s = %s on a boot with no --save-as, want null", key, got)
-		}
 	}
 	if got := string(raw["home_resource_paths"]); got != "null" {
 		t.Errorf("home_resource_paths = %s for Claude, want null", got)
@@ -307,7 +311,7 @@ func TestBootJSONDescribesTheBootForALauncher(t *testing.T) {
 // without this it rests on nullable's shape and nothing else.
 func TestBootJSONReportsAFlaglessProviderAsNull(t *testing.T) {
 	layout := bootdir.Layout{Provider: profile.ProviderClaude}
-	report, err := newBootReport("/boot/x", layout, "", "/bundle", nil, nil)
+	report, err := newBootReport("/boot/x", layout, "", "/bundle", nil)
 	if err != nil {
 		t.Fatalf("newBootReport: %v", err)
 	}
@@ -408,6 +412,7 @@ func TestBootWithoutJSONPrintsTheBarePath(t *testing.T) {
 	if err := run(ctx, []string{
 		"boot", "engineer",
 		"--profile", bundle,
+		"--scope", scopeDir,
 		"--boot-root", bootRoot,
 		"--session", "s1",
 	}, &stdout, &stderr); err != nil {
@@ -557,6 +562,7 @@ func TestASlotThatProducedNothingLeavesNoTraceInTheBootFile(t *testing.T) {
 	err := run(ctx, []string{
 		"boot", "engineer",
 		"--profile", bundle,
+		"--scope", scopeDir,
 		"--boot-root", filepath.Join(home, "runtime", "boot"),
 		"--session", "s1",
 	}, &stdout, &stderr)
@@ -615,6 +621,7 @@ func TestTwoBootsOfOneProfileAreByteIdentical(t *testing.T) {
 		if err := run(ctx, []string{
 			"boot", "engineer",
 			"--profile", bundle,
+			"--scope", scopeDir,
 			"--boot-root", bootRoot,
 			"--session", session,
 		}, &stdout, &stderr); err != nil {
@@ -794,7 +801,7 @@ func TestAValueCairnCannotFillIsRenderedAwayAndReported(t *testing.T) {
 	for _, want := range []string{
 		`value "tenant"`, // the name that missed the set
 		"AGENTS.md",      // the file it missed it in
-		`the values cairn fills are "binding", "model", "profile", "provider", "scope", "session"`,
+		`the values cairn fills are "model", "profile", "provider", "scope", "session"`,
 	} {
 		if !strings.Contains(report, want) {
 			t.Errorf("the report does not carry %q:\n%s", want, report)
@@ -876,6 +883,7 @@ func TestBootRefusals(t *testing.T) {
 		err := run(ctx, []string{
 			"boot", "engineer",
 			"--profile", bundle,
+			"--scope", scopeDir,
 			"--boot-root", filepath.Join(scopeDir, "runtime", "boot"),
 			"--session", "s1",
 		}, &out, &errOut)
@@ -894,6 +902,7 @@ func TestBootRefusals(t *testing.T) {
 		err := run(ctx, []string{
 			"boot", "engineer",
 			"--profile", bundle,
+			"--scope", scopeDir,
 			"--boot-root", filepath.Join(foreign, "runtime", "boot"),
 			"--session", "s1",
 		}, &out, &errOut)
@@ -1328,7 +1337,6 @@ func seed(t *testing.T, bundle, skillsDir, scopeDir string) map[string]bundlePro
 		writeProfile(t, bundle, p)
 		written[p.ID] = p
 	}
-	writeBinding(t, bundle, "engineer", "engineer", scopeDir)
 	// The fixtures are returned so a test can re-author one: a file is the
 	// store now, so changing a profile is writing its file again rather than
 	// updating a row.

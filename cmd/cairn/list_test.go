@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -15,15 +13,14 @@ import (
 
 // TestList covers the command that answers "what can I boot" against a
 // directory of files. It replaces a SQL query the conductor profile ran against
-// the store, so the question is the same one and the answer has to carry the
-// same three facts: what a binding is called, what it boots, and where.
+// the store, so the question is the same one.
 //
-// And now a fourth, which the query never could: what the binding composes on
-// top. The listing rendered three of catalog.Binding's fields and went on
-// rendering three as parts, skills and prompts arrived, so two bindings that
-// boot materially different sessions read as one row but for the name. See
-// TestListRendersEveryBindingField, which is that decay written down as a
-// failure rather than as a comment.
+// What it enumerates changed with the catalog. Bindings were the first block
+// and the widest — a name, the profile it booted, where it worked, and the
+// parts, skills and prompts it composed — and they retired with `--save-as`,
+// because composing for a launch is the launcher's. What is left is what the
+// bundle actually holds: the profiles, the abstract ones apart from them, and
+// the layouts a profile's `{{ extends }}` can name.
 func TestList(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()
@@ -33,20 +30,11 @@ func TestList(t *testing.T) {
 	mustMkdir(t, scopeDir)
 	writeSkill(t, skillsDir)
 	seed(t, bundle, skillsDir, scopeDir)
-	writeBinding(t, bundle, "solo", "engineer", scopeDir)
-	// A home-relative scope, so that the directory column can be shown to be
-	// the path the file declared rather than an expansion of it.
-	writeBinding(t, bundle, "tilde", "engineer", "~/dev/projects/cairn")
-	// A binding that composes, standing beside two that do not. A listing
-	// resolves none of these ids — the catalog checks that a binding names a
-	// profile it holds and checks nothing else — so what is printed is what the
-	// file says, which is the promise this column makes.
-	writeFile(t, filepath.Join(bundle, catalog.BindingsDir, "composed.yaml"),
-		"profile: engineer\n"+
-			"parts:\n  - docs-only\n  - git-flow\n"+
-			"skills:\n  - code-review\n"+
-			"prompts:\n  - handoff\n"+
-			fmt.Sprintf("scope: %q\n", scopeDir), 0o644)
+	mustMkdir(t, filepath.Join(bundle, catalog.TemplatesDir, catalog.LayoutsDir))
+	for _, name := range []string{"agent", "terse"} {
+		writeFile(t, filepath.Join(bundle, catalog.TemplatesDir, catalog.LayoutsDir, name+".md"),
+			"{{ yield charter }}\n", 0o644)
+	}
 
 	list := func(t *testing.T, args ...string) string {
 		t.Helper()
@@ -60,45 +48,6 @@ func TestList(t *testing.T) {
 		return stdout.String()
 	}
 
-	t.Run("a binding carries its profile and its directory", func(t *testing.T) {
-		// One line, not three substrings: three assertions that each pass
-		// somewhere in the document would pass on a listing that never put the
-		// three facts together.
-		out := list(t)
-		if !hasLine(out, "solo", "engineer", scopeDir) {
-			t.Errorf("no line carries the binding, its profile and its directory:\n%s", out)
-		}
-	})
-
-	t.Run("a binding says what it composes, and all three kinds of it", func(t *testing.T) {
-		// One line again, and for a sharper reason than above: three
-		// assertions that each pass somewhere in the document would pass on a
-		// listing that showed one binding's parts and another's prompts.
-		//
-		// Ids and not counts. A count would leave two bindings that each add
-		// one part rendering identically, which is the very complaint this
-		// column answers, and for prompts it would stand for a command a
-		// person can type without saying which command.
-		out := list(t)
-		if !hasLine(out, "composed", "engineer", scopeDir,
-			"parts: docs-only, git-flow", "skills: code-review", "prompts: handoff") {
-			t.Errorf("the row does not carry what the binding composes:\n%s", out)
-		}
-	})
-
-	t.Run("a binding that composes nothing ends where it always ended", func(t *testing.T) {
-		// The column is paid for only by the bindings that use it. writeRows
-		// right-trims, so a row with an empty composition is byte-for-byte the
-		// row it was before the column existed — which is what keeps a bundle
-		// of plain bindings from re-rendering every file this listing is
-		// planted into.
-		out := list(t)
-		row := lineStarting(t, out, "solo")
-		if !strings.HasSuffix(row, scopeDir) {
-			t.Errorf("a binding composing nothing grew a column anyway: %q", row)
-		}
-	})
-
 	t.Run("no line ends in whitespace", func(t *testing.T) {
 		// writeRows' own promise, asserted against the document rather than
 		// read off the function. This render is planted into a boot file, where
@@ -111,15 +60,15 @@ func TestList(t *testing.T) {
 		}
 	})
 
-	t.Run("the directory column is the path the binding declared", func(t *testing.T) {
-		// A binding's scope is a path and the listing prints it. There was a
-		// bundle-wide registry of short names for directories in front of this
-		// once, so the column was the registry's answer rather than the file's;
-		// retiring it is what makes the row readable against the file beside
-		// it. The listing still expands nothing — `~` is boot's business.
+	t.Run("the layouts a profile can extend are listed", func(t *testing.T) {
+		// The block that replaced bindings, and it exists for the same reason
+		// the listing does: a layout is addressed by a bare name inside a
+		// template, and a bundle with no way to enumerate them is a directory
+		// the author has to `ls` to find out what `{{ extends }}` may say.
 		out := list(t)
-		if !hasLine(out, "tilde", "engineer", "~/dev/projects/cairn") {
-			t.Errorf("the row is not the path the file declared:\n%s", out)
+		names := rowIDs(blockOf(t, out, "Layouts"))
+		if !slices.Equal(names, []string{"agent", "terse"}) {
+			t.Errorf("Layouts block lists %v, want agent and terse:\n%s", names, out)
 		}
 	})
 
@@ -155,7 +104,7 @@ func TestList(t *testing.T) {
 		if err := run(ctx, []string{"list", "--profile", bare}, &stdout, &stderr); err != nil {
 			t.Fatalf("list: %v\nstderr: %s", err, stderr.String())
 		}
-		for _, absent := range []string{"Bindings", "Abstract profiles"} {
+		for _, absent := range []string{"Abstract profiles", "Layouts"} {
 			if strings.Contains(stdout.String(), absent) {
 				t.Errorf("a bundle with no %s printed the heading anyway:\n%s", absent, stdout.String())
 			}
@@ -178,27 +127,6 @@ func TestList(t *testing.T) {
 			t.Errorf("the refusal does not name what it was given: %v", err)
 		}
 	})
-}
-
-// hasLine reports whether some line of out carries every field, in order. It is
-// how a row is asserted as one fact rather than as several that happen to be in
-// the same document.
-func hasLine(out string, fields ...string) bool {
-	for _, line := range strings.Split(out, "\n") {
-		rest, ok := line, true
-		for _, field := range fields {
-			_, after, found := strings.Cut(rest, field)
-			if !found {
-				ok = false
-				break
-			}
-			rest = after
-		}
-		if ok {
-			return true
-		}
-	}
-	return false
 }
 
 // rowIDs returns the first column of every row of a block, dropping the note
@@ -237,62 +165,4 @@ func blockOf(t *testing.T, out, heading string) string {
 		t.Fatalf("the listing has no %q block:\n%s", heading, out)
 	}
 	return strings.Join(block, "\n")
-}
-
-// lineStarting returns the one line of out whose first field is name, failing
-// when there is not exactly one. It is how a single row is pulled out whole, so
-// an assertion can be about where the row ends and not only about what it
-// contains.
-func lineStarting(t *testing.T, out, name string) string {
-	t.Helper()
-	var found []string
-	for _, line := range strings.Split(out, "\n") {
-		if fields := strings.Fields(line); len(fields) > 0 && fields[0] == name {
-			found = append(found, line)
-		}
-	}
-	if len(found) != 1 {
-		t.Fatalf("want exactly one row for %q, got %d:\n%s", name, len(found), out)
-	}
-	return found[0]
-}
-
-// TestListRendersEveryBindingField fails when catalog.Binding gains a field the
-// listing was not taught to show.
-//
-// It is this task's own defect, mechanized. A binding grew parts, then skills,
-// then prompts, and listDocument went on rendering the three fields it was
-// written against — so a binding that composed a different session rendered as
-// the row beside it. catalog.Binding's doc comment predicts exactly this decay
-// for its own prose, and prose is what failed: nothing anywhere said the
-// listing had fallen behind.
-//
-// Reflection rather than a golden of the render, because the question is about
-// the struct and not about the bytes. A field added and left unshown changes no
-// output, so no output test can notice it; this one turns the next field into a
-// failure that names it and asks for a decision. Answering the failure is
-// editing the map — after deciding that the field belongs in a row, or that it
-// does not and why.
-func TestListRendersEveryBindingField(t *testing.T) {
-	shown := map[string]string{
-		"Name":      "the first column",
-		"ProfileID": "the second column",
-		"Scope":     "the third column",
-		"Parts":     "the composition column",
-		"Skills":    "the composition column",
-		"Prompts":   "the composition column",
-	}
-	fields := reflect.VisibleFields(reflect.TypeFor[catalog.Binding]())
-	for _, f := range fields {
-		if _, ok := shown[f.Name]; !ok {
-			t.Errorf("catalog.Binding.%s is new and `cairn list` does not show it. Decide whether a "+
-				"row should carry it, then say so here — a field silently left out is how this "+
-				"listing fell three fields behind before.", f.Name)
-		}
-	}
-	for name := range shown {
-		if !slices.ContainsFunc(fields, func(f reflect.StructField) bool { return f.Name == name }) {
-			t.Errorf("this test claims `cairn list` shows catalog.Binding.%s, which no longer exists", name)
-		}
-	}
 }

@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -111,19 +114,6 @@ func writeFrontmatter(b *strings.Builder, key, value string) {
 	fmt.Fprintf(b, "%s: %s\n", key, quoted)
 }
 
-// writeBinding writes one binding file. The name is the file's, so it is
-// passed separately from what the binding says.
-func writeBinding(t *testing.T, bundle, name, profileID, scopeDir string) {
-	t.Helper()
-	dir := filepath.Join(bundle, catalog.BindingsDir)
-	mustMkdir(t, dir)
-	body := fmt.Sprintf("profile: %q\n", profileID)
-	if scopeDir != "" {
-		body += fmt.Sprintf("scope: %q\n", scopeDir)
-	}
-	writeFile(t, filepath.Join(dir, name+".yaml"), body, 0o644)
-}
-
 // nothingUnder fails the test when anything exists at or under path. It is how
 // "a read that finds nothing writes nothing" is asserted: the command is
 // pointed at a path that does not exist, and this says whether it stayed that
@@ -141,4 +131,96 @@ func nothingUnder(t *testing.T, path string) {
 		t.Fatalf("a command that reads and finds nothing left something behind:\n  %s",
 			strings.Join(found, "\n  "))
 	}
+}
+
+// The helpers below moved here when saveas_test.go was deleted with
+// `--save-as`. They are not about bindings: they copy the example bundle,
+// boot it, and diff two planted trees, which is what a good half of this
+// package's tests do.
+//
+// exampleBundle still copies rather than pointing at the checkout. Nothing
+// writes into a bundle any more — that was --save-as's alone — but a test
+// that mutates the repository's own example bundle is a test that fails the
+// second time it runs, and the copy is what keeps that impossible rather than
+// merely unlikely.
+
+// A copy, because --save-as writes into the bundle and the example one is
+// checked in. The two skills the tests add are skills the example bundle does
+// not ship: the point of naming them is that they are ids the profiles never
+// declared, so seeing them in a boot directory means the flag or the binding
+// put them there.
+func exampleBundle(t *testing.T, into string) string {
+	t.Helper()
+	src, err := filepath.Abs(filepath.Join("..", "..", "examples", "bundle"))
+	if err != nil {
+		t.Fatalf("locate the example bundle: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(src, "profiles", "engineer.md")); err != nil {
+		t.Fatalf("the example bundle is not where this test expects it: %v", err)
+	}
+	dst := filepath.Join(into, "bundle")
+	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dst, rel), b, 0o644)
+	})
+	if err != nil {
+		t.Fatalf("copy the example bundle: %v", err)
+	}
+	for _, id := range []string{"qhealth", "adr"} {
+		mustMkdir(t, filepath.Join(dst, "skills", id))
+		writeFile(t, filepath.Join(dst, "skills", id, "SKILL.md"),
+			fmt.Sprintf("---\nname: %s\ndescription: A skill the example bundle does not ship.\n---\n", id),
+			0o644)
+	}
+	return dst
+}
+
+// bootTree runs one boot and returns the tree it planted.
+func bootTree(t *testing.T, ctx context.Context, bootRoot string, args ...string) map[string]string {
+	t.Helper()
+	return bootTreeErr(t, ctx, discard(), bootRoot, args...)
+}
+
+// bootTreeErr is [bootTree] with stderr handed in, for the tests that read it.
+func bootTreeErr(t *testing.T, ctx context.Context, stderr io.Writer, bootRoot string, args ...string) map[string]string {
+	t.Helper()
+	var stdout bytes.Buffer
+	var captured bytes.Buffer
+	full := append([]string{"boot"}, args...)
+	full = append(full, "--boot-root", bootRoot, "--session", "s")
+	if err := run(ctx, full, &stdout, io.MultiWriter(stderr, &captured)); err != nil {
+		t.Fatalf("boot %v: %v\nstderr: %s", args, err, captured.String())
+	}
+	return treeOf(t, strings.TrimSpace(stdout.String()))
+}
+
+// changedFiles names every path the two trees disagree about, present in one
+// and absent from the other included.
+func changedFiles(t *testing.T, a, b map[string]string) []string {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, rel := range slices.Sorted(maps.Keys(a)) {
+		if b[rel] != a[rel] {
+			seen[rel] = true
+		}
+	}
+	for _, rel := range slices.Sorted(maps.Keys(b)) {
+		if a[rel] != b[rel] {
+			seen[rel] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(seen))
 }
