@@ -59,10 +59,11 @@ var ErrSettingsProvider = errors.New("settings document is not keyed by provider
 // diagnostic that has to say what may be written there reads the same list the
 // check reads. The caller receives a fresh slice it may modify.
 //
-// Knowing a name is not the same as having a layout for it. Two of these three
-// render nothing today: [github.com/chrispian/cairn/bootdir.LayoutFor] refuses
-// them by name, which is a separate answer to a separate question and is
-// deliberately not folded in here. A profile may declare settings for a
+// Knowing a name is not the same as having a layout for it: that is
+// [github.com/chrispian/cairn/bootdir.LayoutFor]'s answer, a separate answer
+// to a separate question, deliberately not folded in here. Every name here has
+// a boot tree today; opencode has no installed layer, and its tree does not
+// render spec.mcp or spec.settings yet. A profile may declare settings for a
 // provider Cairn cannot yet materialize into, and that document is carried
 // rather than refused — it is what makes one profile serve every target.
 func Providers() []Provider {

@@ -172,10 +172,17 @@ dropping in silence.
 **A profile therefore needs no per-provider nulls.** One profile serves every
 harness, and each tree takes what it has somewhere to put.
 
-Claude Code and Codex layouts are implemented. `opencode` is a name cairn knows
-and cannot yet write, and it is refused rather than rendered as another
-harness's layout. A word that is no harness at all is a different refusal, and
-says so.
+Claude Code, Codex and OpenCode boot layouts are implemented. OpenCode's is
+boot-only: `cairn install --provider opencode` is refused by name, and its boot
+leaves `spec.mcp` and `spec.settings` unrendered for now (they belong in
+`opencode.json`, which arrives with the library renderer, CW-20260930-0136), with
+a line naming each dropped key and server. An OpenCode boot is opened by setting
+`OPENCODE_CONFIG_DIR` to the boot directory (the report's `env_amendments`) and
+passing the scope as `opencode`'s positional project argument
+(`project_dir_arg`); its auth stays in `~/.local/share/opencode`, so there are
+no provider-home resources to supply. Harnesses reached only over ACP (Copilot,
+Pi) have no native boot directory. A word that is no harness at all is a
+different refusal, and says so.
 
 Codex boots render `AGENTS.md` and `config.toml`, and `cairn boot --json`
 reports the adapter's cwd, project-dir argument, environment amendments and

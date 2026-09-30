@@ -31,9 +31,13 @@ Cairn does not launch, monitor, or supervise agents, and it ships no
 profiles. File contents are a black box: Cairn provides and validates the
 shape, and whoever owns the bundle owns the meaning. **You launch.**
 
-Providers: `claude` (Claude Code) and `codex` (Codex CLI) are implemented.
-`opencode` is recognized and refused by name rather than rendered as another
-harness's files.
+Providers: `claude` (Claude Code), `codex` (Codex CLI) and `opencode` (OpenCode)
+have boot layouts. OpenCode's covers the boot directory only: there is no
+installed layer, and it does not render `spec.mcp` or `spec.settings` yet
+(OpenCode keeps both in `opencode.json`; the library renderer is tracked as
+CW-20260930-0136), so a boot names what it dropped. Harnesses reached only over
+ACP, such as Copilot and Pi, have no native boot directory, and Cairn renders
+nothing for them. Antigravity waits on a go-providers upgrade.
 
 ## Install
 

@@ -53,6 +53,42 @@ func Undeclared(inst *Instance) []string {
 			"the %s layout has nowhere to plant spec.%s, which declares %s, so this boot directory carries none",
 			inst.Layout.Provider, c.key, quotedNames(c.names)))
 	}
+	for _, c := range unrenderedContent(inst) {
+		line := fmt.Sprintf("the %s layout does not render spec.%s, which declares %s, so this boot directory carries none of it",
+			inst.Layout.Provider, c.key, quotedNames(c.names))
+		if note := strings.TrimSpace(inst.Layout.UnrenderedNote); note != "" {
+			line += " (" + note + ")"
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+// unrenderedContent returns the keys this tree declares unrendered that the
+// profile nonetheless declares, in the tree's order. Decode errors are
+// swallowed for the reason [undeclaredContent] gives.
+func unrenderedContent(inst *Instance) []dropped {
+	var out []dropped
+	for _, key := range inst.Layout.Unrendered {
+		var names []string
+		switch key {
+		case profile.SpecKeyMCP:
+			servers, err := inst.Profile.Spec.MCP()
+			if err != nil {
+				continue
+			}
+			for _, s := range servers {
+				names = append(names, s.Name)
+			}
+		case profile.SpecKeySettings:
+			if _, declared, err := inst.Profile.Spec.Settings(inst.Layout.Provider); err == nil && declared {
+				names = []string{inst.Layout.Provider.String()}
+			}
+		}
+		if len(names) > 0 {
+			out = append(out, dropped{key: key, names: names})
+		}
+	}
 	return out
 }
 

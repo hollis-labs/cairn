@@ -50,9 +50,12 @@ var bootDirSpecs = map[profile.Provider]func() goprovider.BootDirSpec{
 
 // layoutDoc is one harness's tree as it is written in its document.
 type layoutDoc struct {
-	Provider  profile.Provider `yaml:"provider"`
-	Boot      bootDoc          `yaml:"boot"`
-	Installed installedDoc     `yaml:"installed"`
+	Provider profile.Provider `yaml:"provider"`
+	// BootOnly declares a tree with no installed layer: `cairn install`
+	// refuses it by name rather than reporting a malformed document.
+	BootOnly  bool         `yaml:"boot_only"`
+	Boot      bootDoc      `yaml:"boot"`
+	Installed installedDoc `yaml:"installed"`
 }
 
 // bootDoc is the boot-directory half of a layout document.
@@ -67,7 +70,19 @@ type bootDoc struct {
 	ProjectDirArg             string   `yaml:"project_dir_arg"`
 	EnvAmendmentsFromProvider bool     `yaml:"env_amendments_from_provider"`
 	HomeResources             []string `yaml:"home_resources"`
+
+	Unrendered unrenderedDoc `yaml:"unrendered"`
 }
+
+// unrenderedDoc is what a tree says about the manifest keys it does not render.
+type unrenderedDoc struct {
+	Keys []string `yaml:"keys"`
+	Note string   `yaml:"note"`
+}
+
+// unrenderableKeys are the keys a tree may declare as unrendered: the ones
+// [Undeclared] knows how to read a profile's declaration of.
+var unrenderableKeys = []string{profile.SpecKeyMCP, profile.SpecKeySettings}
 
 // dirsDoc names the directories a boot directory plants collections into. An
 // empty member is a collection this harness has nowhere to put, which the
@@ -167,6 +182,15 @@ func readLayouts(fsys fs.FS) (map[profile.Provider]*layoutDoc, error) {
 			return nil, fmt.Errorf("the layout document %s declares provider %q, which no adapter answers for",
 				name, doc.Provider)
 		}
+		for _, key := range doc.Boot.Unrendered.Keys {
+			if !slices.Contains(unrenderableKeys, key) {
+				return nil, fmt.Errorf("the layout document %s declares %q unrendered, which cairn cannot report — only %v",
+					name, key, unrenderableKeys)
+			}
+			if slices.Contains(doc.Boot.Renders, key) {
+				return nil, fmt.Errorf("the layout document %s both renders and declares unrendered %q", name, key)
+			}
+		}
 		out[doc.Provider] = doc
 	}
 	return out, nil
@@ -230,6 +254,8 @@ func (d *layoutDoc) bootLayout() (Layout, error) {
 		CwdPreference:     spec.CwdPreference,
 		ProjectDirArg:     spec.ProjectDirArg,
 		HomeResourcePaths: slices.Clone(d.Boot.HomeResources),
+		Unrendered:        slices.Clone(d.Boot.Unrendered.Keys),
+		UnrenderedNote:    d.Boot.Unrendered.Note,
 	}
 	if d.Boot.ProjectDirArg != "" {
 		out.ProjectDirArg = d.Boot.ProjectDirArg
@@ -285,6 +311,10 @@ func (d *layoutDoc) bootArtifact(spec goprovider.BootDirSpec, a artifactDoc) (Ar
 // directory, the artifacts in render order, and the [Layout] the shared
 // renderers read their paths from.
 func (d *layoutDoc) installedLayout() (InstalledLayout, error) {
+	if d.BootOnly {
+		return InstalledLayout{}, fmt.Errorf("%w: the %s layout covers the boot directory only — cairn has no installed layer for it",
+			ErrUnsupportedProvider, d.Provider)
+	}
 	dir := d.Installed.Dir
 	if strings.TrimSpace(dir) == "" {
 		return InstalledLayout{}, fmt.Errorf("%w: the %s layout declares no installed directory",

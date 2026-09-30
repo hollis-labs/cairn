@@ -1,0 +1,58 @@
+# The OpenCode tree.
+#
+# Read claude.yaml first for what a layout document is, and codex.yaml for the
+# shape this one follows: a harness pointed at the boot directory by an
+# environment amendment rather than a flag.
+#
+# What OpenCode does with a boot directory, checked against opencode 1.18.30
+# with OPENCODE_CONFIG_DIR set to one (a direct `opencode run`, no service):
+#
+#   * OPENCODE_CONFIG_DIR is read the way a project's .opencode directory is.
+#     AGENTS.md there was followed as instructions, and a skill planted under
+#     skills/<name>/SKILL.md was listed as available.
+#   * Auth stays where it lives, ~/.local/share/opencode, outside the config
+#     directory, so there is nothing for a launcher to provide:
+#     `home_resources` is empty.
+#   * The interactive `opencode` takes the project as a positional argument.
+#     `--dir` belongs to `opencode run`, which is what the adapter's own
+#     BootDirSpec declares, so this names the interactive form, as codex.yaml
+#     does for its flag.
+#
+# What it does not render yet. OpenCode keeps MCP servers and settings as keys
+# of one opencode.json, as Codex keeps them in config.toml. Cairn renders that
+# document for Codex itself; for OpenCode it waits for the library renderer
+# rather than growing a second hand-written one. So `mcp` and `settings` are
+# declared unrendered: a profile that declares either boots without it, and the
+# boot report names the keys and the servers it dropped.
+#
+# `prompts` and `subagents` stay in `renders` with no directory, so a profile
+# declaring them has them dropped with a line saying so, as for Codex.
+#
+# There is no installed layer: this tree covers the boot directory only, and
+# `cairn install` refuses it by name.
+
+provider: opencode
+
+boot_only: true
+
+boot:
+  renders: [templates, skills, prompts, subagents, trees, files]
+
+  artifacts:
+    - kind: agents
+      dest: AGENTS.md
+      path: AGENTS.md
+
+  directories:
+    skills: skills
+
+  templates:
+    drop: [CLAUDE.md]
+
+  project_dir_arg: "{{.ProjectDir}}"
+
+  env_amendments_from_provider: true
+
+  unrendered:
+    keys: [mcp, settings]
+    note: "OpenCode keeps both in opencode.json, which cairn renders once the library renderer lands, CW-20260930-0136"

@@ -74,6 +74,9 @@ func TestInstalledRenderersComeFromTheTree(t *testing.T) {
 func TestTheInstructionFileIsFoundByKind(t *testing.T) {
 	for _, p := range bootdir.LayoutProviders() {
 		renderers, _, err := PlanterFor(p)
+		if errors.Is(err, bootdir.ErrUnsupportedProvider) {
+			continue // a boot-only tree, such as OpenCode's, installs nothing
+		}
 		if err != nil {
 			t.Fatalf("PlanterFor(%q): %v", p, err)
 		}
