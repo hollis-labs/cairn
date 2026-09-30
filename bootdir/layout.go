@@ -189,6 +189,13 @@ type Layout struct {
 	// render, but a launcher must deliberately provide when EnvAmendments
 	// points the harness at the boot directory as its home.
 	HomeResourcePaths []string
+
+	// Unrendered names the manifest keys this tree does not render at all:
+	// not materialized elsewhere, as Codex's MCP servers are, but simply not
+	// written yet. A profile that declares one is told by [Undeclared], and
+	// UnrenderedNote says why and where it will arrive.
+	Unrendered     []string
+	UnrenderedNote string
 }
 
 // Drops reports whether dest is a template destination this tree has no reader

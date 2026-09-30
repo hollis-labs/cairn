@@ -94,9 +94,11 @@ flags for boot, install and show:
                          provider is a materialization target rather than a property of
                          the content — access, slots, templates and skills are neutral
                          and serve every target — which is why one profile can be asked
-                         for another harness at all. claude and codex layouts are
-                         implemented; opencode is refused by name rather than rendered
-                         as another harness's files
+                         for another harness at all. claude, codex and opencode boot
+                         layouts are implemented. opencode has no installed layer, so
+                         install refuses it, and its boot does not render spec.mcp or
+                         spec.settings yet (CW-20260930-0136); the boot names what it
+                         dropped
 
 flags for all four:
   --profile <dir>        the profile bundle — the directory the catalog is read from,

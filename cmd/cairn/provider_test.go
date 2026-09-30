@@ -76,42 +76,75 @@ func TestProviderSelectsTheSettingsDocument(t *testing.T) {
 	}
 }
 
-// TestProviderRefusesATargetWithNoLayout is the scope fence, stated as a test.
-//
-// Cairn knows the name "opencode" and renders nothing for it, and those are two
-// different facts. The refusal has to name the flag rather than the profile —
-// the profile says claude, and sending the reader to it would send them to a
-// file that is not wrong — and it has to plant nothing, because a boot
-// directory in another harness's shape is worse than no boot directory.
-func TestProviderRefusesATargetWithNoLayout(t *testing.T) {
+// TestProviderOpenCodeBootRendersAndReportsWhatItDrops proves OpenCode is a
+// real materialization target: the report says how to open the directory, the
+// tree plants AGENTS.md and not Claude's pointer, and spec.mcp and
+// spec.settings, which the tree does not render yet, are named on stderr
+// rather than silently missing.
+func TestProviderOpenCodeBootRendersAndReportsWhatItDrops(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()
 	bundle := filepath.Join(home, "bundle")
 	bootRoot := filepath.Join(home, "boot")
-	skillsDir := filepath.Join(home, "skills")
 	scopeDir := filepath.Join(home, "repo")
 	mustMkdir(t, scopeDir)
-	writeSkill(t, skillsDir)
-	seed(t, bundle, skillsDir, scopeDir)
+	writeProfile(t, bundle, bundleProfile{
+		ID:       "coder",
+		Name:     "Coder",
+		Provider: "opencode",
+		Spec: map[string]string{
+			"templates": `{
+				"AGENTS.md": "# <!-- cairn:value profile --> on <!-- cairn:value provider -->\n",
+				"CLAUDE.md": "@AGENTS.md\n"
+			}`,
+			"mcp":      `[{"name":"tools","command":"tools-mcp"}]`,
+			"settings": `{"opencode":{"model":"anthropic/claude-sonnet-4-6"}}`,
+			"access":   `{"directories":["` + scopeDir + `"]}`,
+		},
+	})
 
 	var stdout, stderr bytes.Buffer
 	err := run(ctx, []string{
-		"boot", "engineer",
+		"boot", "coder",
 		"--profile", bundle,
 		"--boot-root", bootRoot,
 		"--session", "s1",
-		"--provider", "opencode",
+		"--json",
 	}, &stdout, &stderr)
-	if !errors.Is(err, bootdir.ErrUnsupportedProvider) {
-		t.Fatalf("boot --provider opencode = %v, want bootdir.ErrUnsupportedProvider", err)
+	if err != nil {
+		t.Fatalf("boot an opencode profile: %v\nstderr: %s", err, stderr.String())
 	}
-	for _, want := range []string{`--provider "opencode"`, `"claude"`, `"codex"`} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("the refusal %q does not carry %s", err, want)
+	var report bootReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("decode boot report: %v\n%s", err, stdout.String())
+	}
+	if report.Provider != profile.ProviderOpenCode.String() {
+		t.Fatalf("provider = %q, want opencode", report.Provider)
+	}
+	if !slices.Equal(report.ProjectDirArg, []string{"{{.ProjectDir}}"}) {
+		t.Errorf("project_dir_arg = %v, want the interactive positional project", report.ProjectDirArg)
+	}
+	if !slices.Equal(report.EnvAmendments, []string{"OPENCODE_CONFIG_DIR={{.BootDir}}"}) {
+		t.Errorf("env_amendments = %v, want OPENCODE_CONFIG_DIR at the boot dir", report.EnvAmendments)
+	}
+	if len(report.HomeResourcePaths) != 0 {
+		t.Errorf("home_resource_paths = %v, want none: OpenCode's auth is outside its config dir", report.HomeResourcePaths)
+	}
+	if report.SettingsPath != nil {
+		t.Errorf("settings_path = %v, want none: the tree does not render settings yet", *report.SettingsPath)
+	}
+	if agents := read(t, report.BootDir, "AGENTS.md"); !strings.Contains(agents, "coder on opencode") {
+		t.Errorf("AGENTS.md does not carry the OpenCode materialization values:\n%s", agents)
+	}
+	for _, absent := range []string{"CLAUDE.md", "opencode.json", ".mcp.json"} {
+		if _, err := os.Stat(filepath.Join(report.BootDir, absent)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("OpenCode boot planted %s: %v", absent, err)
 		}
 	}
-	if _, statErr := os.Stat(filepath.Join(bootRoot, "engineer", "s1")); !errors.Is(statErr, os.ErrNotExist) {
-		t.Errorf("a refused target still planted a boot directory: %v", statErr)
+	for _, want := range []string{"opencode layout does not render spec.mcp", `"tools"`, "spec.settings", "CW-20260930-0136"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr does not carry %q:\n%s", want, stderr.String())
+		}
 	}
 }
 
@@ -182,10 +215,10 @@ func TestProviderCodexBootRendersNativeArtifacts(t *testing.T) {
 }
 
 // TestProviderRefusesAWordThatIsNoHarness is the other refusal, and it is a
-// different one. "opencode" is a provider cairn cannot render; "cluade" is
-// not a provider. One message for both would leave the operator who typo'd
-// looking for a feature and the operator who asked for opencode looking for a
-// typo.
+// different one. "cluade" is not a provider, where an opencode install is a
+// provider with no installed layer. One message for both would leave the
+// operator who typo'd looking for a feature and the operator who asked for
+// the missing layer looking for a typo.
 func TestProviderRefusesAWordThatIsNoHarness(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()

@@ -53,6 +53,19 @@ func TestTheLayoutDocumentsPinEveryPath(t *testing.T) {
 				DropTemplates: []string{"CLAUDE.md"},
 			},
 		},
+		{
+			provider: profile.ProviderOpenCode,
+			want: Layout{
+				Provider:      profile.ProviderOpenCode,
+				Renders:       []string{"templates", "skills", "prompts", "subagents", "trees", "files"},
+				Agents:        Artifact{Dest: "AGENTS.md", RelPath: "AGENTS.md"},
+				SkillsDir:     "skills",
+				DropTemplates: []string{"CLAUDE.md"},
+				ProjectDirArg: "{{.ProjectDir}}",
+				EnvAmendments: []string{"OPENCODE_CONFIG_DIR={{.BootDir}}"},
+				Unrendered:    []string{"mcp", "settings"},
+			},
+		},
 	} {
 		t.Run(string(tc.provider), func(t *testing.T) {
 			got, err := LayoutFor(tc.provider)
@@ -91,6 +104,17 @@ func TestTheLayoutDocumentsPinEveryPath(t *testing.T) {
 			}
 			if !maps.Equal(got.RenderImpls, tc.want.RenderImpls) {
 				t.Errorf("render implementations = %v, want %v", got.RenderImpls, tc.want.RenderImpls)
+			}
+			if !slices.Equal(got.Unrendered, tc.want.Unrendered) {
+				t.Errorf("unrendered = %v, want %v", got.Unrendered, tc.want.Unrendered)
+			}
+			// Only the trees that override the adapter's pattern or take its
+			// amendments pin these; the others are the adapter's to say.
+			if tc.want.ProjectDirArg != "" && got.ProjectDirArg != tc.want.ProjectDirArg {
+				t.Errorf("project dir arg = %q, want %q", got.ProjectDirArg, tc.want.ProjectDirArg)
+			}
+			if tc.want.EnvAmendments != nil && !slices.Equal(got.EnvAmendments, tc.want.EnvAmendments) {
+				t.Errorf("env amendments = %v, want %v", got.EnvAmendments, tc.want.EnvAmendments)
 			}
 		})
 	}
@@ -216,16 +240,16 @@ func TestEveryLayoutDocumentIsWellFormed(t *testing.T) {
 }
 
 // TestAProviderWithNoTreeIsRefused covers the answer that must never become a
-// fallback: cairn knows three provider names and holds trees for two of them,
-// and a target silently redirected to another harness's tree would put that
-// harness's files at its paths for one that reads neither.
+// fallback: a target silently redirected to another harness's tree would put
+// that harness's files at its paths for one that reads neither. Every provider
+// cairn knows now has a tree, so what is left to refuse is a word that is not
+// a provider and no provider at all.
 func TestAProviderWithNoTreeIsRefused(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		provider profile.Provider
 		names    bool
 	}{
-		{name: "a provider with no document", provider: profile.ProviderOpenCode, names: true},
 		{name: "a word that is not a provider", provider: "nope", names: true},
 		{name: "no provider at all", provider: ""},
 	} {
@@ -244,6 +268,42 @@ func TestAProviderWithNoTreeIsRefused(t *testing.T) {
 				if !strings.Contains(err.Error(), string(p)) {
 					t.Errorf("the refusal %q does not name %q, which cairn does render", err, p)
 				}
+			}
+		})
+	}
+}
+
+// TestABootOnlyTreeHasNoInstalledLayer covers the OpenCode tree, which renders
+// a boot directory and nothing into the operator's home. `cairn install` is
+// told so by name rather than reading an absent installed half as a malformed
+// document.
+func TestABootOnlyTreeHasNoInstalledLayer(t *testing.T) {
+	if _, err := LayoutFor(profile.ProviderOpenCode); err != nil {
+		t.Fatalf("LayoutFor(%q): %v", profile.ProviderOpenCode, err)
+	}
+	_, err := InstalledLayoutFor(profile.ProviderOpenCode)
+	if !errors.Is(err, ErrUnsupportedProvider) {
+		t.Fatalf("InstalledLayoutFor(%q) = %v, want ErrUnsupportedProvider", profile.ProviderOpenCode, err)
+	}
+	if !strings.Contains(err.Error(), "boot directory only") {
+		t.Errorf("the refusal %q does not say the tree is boot-only", err)
+	}
+}
+
+// TestAnUnrenderedKeyIsCheckedAgainstTheDocument covers what readLayouts
+// refuses about `unrendered`: a key the report cannot read a declaration of,
+// and a key the same tree also renders.
+func TestAnUnrenderedKeyIsCheckedAgainstTheDocument(t *testing.T) {
+	for _, tc := range []struct {
+		name, doc string
+	}{
+		{"an unreportable key", "provider: claude\nboot:\n  renders: [templates]\n  unrendered:\n    keys: [prompts]\n"},
+		{"a rendered key", "provider: claude\nboot:\n  renders: [templates, mcp]\n  unrendered:\n    keys: [mcp]\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fsys := fstest.MapFS{LayoutDir + "/claude.yaml": {Data: []byte(tc.doc)}}
+			if _, err := readLayouts(fsys); err == nil {
+				t.Fatalf("readLayouts accepted %q", tc.doc)
 			}
 		})
 	}

@@ -33,9 +33,10 @@ const providerFlagUsage = "the harness this materializes into, which selects the
 // A value that names no harness cairn knows is refused here, ahead of any
 // layout lookup, and the two refusals are deliberately different answers. This
 // one means the word is not a provider; [bootdir.LayoutFor] and the installed
-// layer's own lookup mean it is a provider and cairn cannot render it yet. An
-// operator who typed "cluade" and an operator who typed "opencode" have
-// different problems, and one message for both would serve neither.
+// layer's own lookup mean it is a provider and cairn cannot render it there
+// yet, as `cairn install --provider opencode` is told. An operator who typed
+// "cluade" and an operator who asked for a layer a harness does not have yet
+// have different problems, and one message for both would serve neither.
 //
 // The returned name is what a refusal further down should quote: the flag when
 // a flag chose the target, and otherwise the profile, which is the file the

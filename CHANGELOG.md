@@ -8,6 +8,12 @@ release yet; everything below is unreleased.
 
 ### Added
 
+- An OpenCode boot layout (`layouts/opencode.yaml`): `AGENTS.md`, skills under
+  `skills/`, `OPENCODE_CONFIG_DIR` as the environment amendment and the scope
+  as the positional project argument. It is boot-only (`cairn install` refuses
+  it), and it does not render `spec.mcp` or `spec.settings` yet: a boot names
+  each dropped key and server (CW-20260930-0142; the renderer is
+  CW-20260930-0136).
 - `cairn boot` materializes a boot directory from a profile and prints its
   path; `--json` prints one object a launcher reads instead (boot directory,
   scope, bundle, settings file, and how the harness takes the scope).
@@ -30,7 +36,7 @@ release yet; everything below is unreleased.
 - Templates with `cairn:slot` / `cairn:value` markers, and profiles that are
   their own template, with the body rendered where the layout says.
 - Native Codex materialization alongside Claude Code; `--provider` picks the
-  target, and `opencode` is refused by name.
+  target. (`opencode` boots as of the entry above.)
 - Per-harness layout documents (`bootdir/layouts/*.yaml`): a harness is a tree
   described as data, not a code path.
 - Access grants: the scope and `spec.access.directories` are granted in the
