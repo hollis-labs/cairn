@@ -32,3 +32,11 @@ Thumbs.db
 
 # Bare `go build ./...` output for cmd/cairn
 /cairn
+
+# Agent-facing and internal planning material. Kept on disk for agents working
+# in this checkout; not part of the published tree.
+/AGENTS.md
+/CLAUDE.md
+/.claude/
+/.agentrc/
+/docs/plan.md

@@ -26,7 +26,7 @@ writes no composition down and reads none back.
 ## 1. Build
 
 ```bash
-cd ~/dev/projects/cairn
+git clone https://github.com/hollis-labs/cairn.git && cd cairn
 make build            # → bin/cairn
 ```
 
@@ -52,7 +52,7 @@ seed and nothing to import: edit a file, and the next command reads it.
 
 ```bash
 ./bin/cairn list --profile examples/bundle
-./bin/cairn boot eng --profile examples/bundle --scope ~/dev/projects/cairn
+./bin/cairn boot engineer --profile examples/bundle --scope ~/src/my-project
 ```
 
 It holds an abstract `base`, a concrete `engineer` that extends it, a
@@ -89,7 +89,7 @@ resolving one and listing the other.
 
 ```bash
 cairn boot eng
-# /Users/chrispian/.local/state/cairn/boot/eng/20260826T014133Z-9f2a1c
+# /home/you/.local/state/cairn/boot/eng/20260826T014133Z-9f2a1c
 ```
 
 The path goes to **stdout**; diagnostics go to **stderr**. A slot that fails to
@@ -192,7 +192,7 @@ real scope is granted with the provider's project-dir argument:
 
 ```bash
 report="$(cairn boot codex-coord-cairn \
-  --profile /Users/chrispian/dev/projects/agent-setup \
+  --profile ~/src/agent-bundle \
   --provider codex \
   --json)"
 boot="$(printf '%s\n' "$report" | jq -r '.boot_dir')"
@@ -519,7 +519,7 @@ and leaves no gap; compose the part that fills it and the block appears in
 place:
 
 ```
-$ cairn boot documentarian --scope ~/dev/projects/cairn --with docs-only
+$ cairn boot documentarian --scope ~/src/my-project --with docs-only
 ```
 
 **Sections merge closest-wins**, which is the cascade's only rule: a
@@ -908,8 +908,8 @@ moved. With it, stdout is one JSON object and nothing else, so
 {
   "boot_dir": "/Users/.../boot/eng/20260826T014133Z-9f2a1c",
   "provider": "claude",
-  "profile_root": "/Users/chrispian/.config/agents",
-  "scope": "/Users/chrispian/dev/projects/cairn",
+  "profile_root": "/home/you/.config/agents",
+  "scope": "/home/you/src/my-project",
   "settings_path": "/Users/.../boot/eng/20260826T014133Z-9f2a1c/.claude/settings.json",
   "cwd_preference": "boot_dir",
   "project_dir_arg": ["--add-dir", "{{.ProjectDir}}"],
@@ -1101,8 +1101,8 @@ the other command.**
   "provider": "claude",
   "model": "opus",
   "abstract": false,
-  "scope": "/Users/chrispian/dev/projects/cairn",
-  "profile_root": "/Users/chrispian/.config/agents",
+  "scope": "/home/you/src/my-project",
+  "profile_root": "/home/you/.config/agents",
   "spec": {
     "skills": {
       "value": ["code-review", "writing", "qhealth"],
