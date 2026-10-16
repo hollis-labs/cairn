@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // hostileUmask sets a umask that would strip every bit past the owner's from a

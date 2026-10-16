@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
-	"github.com/hollis-labs/agentkit/agentcontext/resolvers"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
+	"github.com/hollis-labs/libs/harness/core/agentcontext/resolvers"
 )
 
 // ErrSlotKind reports a source whose declared kind is missing or is not one

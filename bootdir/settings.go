@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/chrispian/cairn/profile"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/profile"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 )
 
 // accessDirectoriesKey names spec.access.directories in a diagnostic. It is
@@ -199,7 +199,7 @@ func accessFragment(inst *Instance) (json.RawMessage, error) {
 // A declared path is put to the four steps package scope already performs on
 // the scope, in that order: expand it, refuse it unless it is absolute, refuse
 // it unless it names an existing directory, and resolve its symlinks. The
-// scope arrives having had all four — see [github.com/chrispian/cairn/scope.Parse]
+// scope arrives having had all four — see [github.com/hollis-labs/cairn/scope.Parse]
 // — and it is one of these grants, so canonicalizing the two differently would
 // mean the same directory reaching the harness under two spellings depending on
 // which of them named it.
@@ -372,7 +372,7 @@ func encodeFragment(doc map[string]any) (json.RawMessage, error) {
 //
 // It is exported because a check needs the same transformation: normalizing
 // both sides through one function is what keeps a comparison from reporting
-// whitespace as drift. See [github.com/chrispian/cairn/install.Renderer].
+// whitespace as drift. See [github.com/hollis-labs/cairn/install.Renderer].
 func IndentJSON(raw []byte) []byte {
 	trimmed := bytes.TrimSpace(raw)
 	var buf bytes.Buffer

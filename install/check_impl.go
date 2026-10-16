@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // SweepPlan is exactly what cairn claims in the install root, and therefore
@@ -93,7 +93,7 @@ type SweepPlan struct {
 // a check never reaches this; it matters only for a plan built on its own.
 //
 // Errors wrap [ErrNoProfile],
-// [github.com/chrispian/cairn/bootdir.ErrUnsupportedProvider] for a provider
+// [github.com/hollis-labs/cairn/bootdir.ErrUnsupportedProvider] for a provider
 // the installed layer has no harness for, or come from reading the manifest
 // key a [Renderer.Fills] is declared over.
 func NewSweepPlan(lay *Layer) (SweepPlan, error) {

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // envProfileRoot names the environment variable a profile bundle's root

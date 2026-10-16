@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestABundleIsReadWhole covers the shape of a catalog: what a profile file

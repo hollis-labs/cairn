@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/template"
+	"github.com/hollis-labs/cairn/template"
 )
 
 // layouts is a [template.LayoutLoader] over a map of unparsed layout text.

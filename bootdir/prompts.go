@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // ErrPromptsSource reports that prompts were declared but the directory to

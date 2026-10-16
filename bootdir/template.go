@@ -32,7 +32,7 @@ var ErrMarker = errors.New("invalid template marker")
 // It is an HTML comment for four reasons. It is invisible in rendered markdown
 // and unmistakable in source, so a template reads as a document rather than as
 // code. It is already this repository's comment idiom — see
-// [github.com/chrispian/cairn/install.GeneratedMarker]. A harness resolving
+// [github.com/hollis-labs/cairn/install.GeneratedMarker]. A harness resolving
 // "@name" imports strips HTML comments before it looks for them, so a marker
 // can never be read as one. And there is nowhere in it to put a conditional,
 // which is the property that keeps a template a substitution target rather than
@@ -158,7 +158,7 @@ func parseMarker(text, body string) (Marker, error) {
 // for either leaves no heading behind. That is the same rule the boot file
 // followed when it was the only place a slot could land, and moving the heading
 // into the template is exactly where it would have been lost — see
-// [github.com/chrispian/cairn/slots.Sections].
+// [github.com/hollis-labs/cairn/slots.Sections].
 //
 // A marker naming a slot the manifest never declared substitutes nothing too.
 // It is not an error here because the file is the same file either way, and
@@ -277,7 +277,7 @@ func substituteLine(line string, locs [][]int, markers []Marker, sections, value
 //
 // A marker naming a slot that is absent from sections is skipped in silence.
 // The key set of sections is the declared set —
-// [github.com/chrispian/cairn/slots.Sections] writes a key for every slot the
+// [github.com/hollis-labs/cairn/slots.Sections] writes a key for every slot the
 // manifest declared, the empty string included for the ones that produced
 // nothing — so an absent key means nobody declared that slot, and that is not a
 // fault to report. One template can carry every marker any profile might fill,
@@ -287,7 +287,7 @@ func substituteLine(line string, locs [][]int, markers []Marker, sections, value
 // The lookup is two-valued for exactly that reason. A single-value lookup
 // returns "" for both cases and cannot tell them apart.
 //
-// The exception is an assembly run with [github.com/chrispian/cairn/slots.Options]
+// The exception is an assembly run with [github.com/hollis-labs/cairn/slots.Options]
 // Deterministic set, which drops the cmd and http slots before they resolve: their
 // names are absent from sections though the manifest declared them. Nothing hands
 // such a map here — the installed layer reports the slots it skipped itself — and

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/chrispian/cairn/catalog"
+	"github.com/hollis-labs/cairn/catalog"
 )
 
 // listSection is one block of the listing: a heading, the sentence saying what

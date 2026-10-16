@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // renderFiles returns the arbitrary files a profile's manifest declares, each

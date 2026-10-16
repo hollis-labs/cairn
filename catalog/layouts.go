@@ -72,7 +72,7 @@ func readLayouts(root string) (map[string]string, error) {
 //
 // Unparsed on purpose. This package reads files and this one does exactly
 // that; what the text means belongs to
-// [github.com/chrispian/cairn/template], and a catalog that parsed it would
+// [github.com/hollis-labs/cairn/template], and a catalog that parsed it would
 // be a second place where a template's syntax is known.
 func (c *Catalog) LayoutText(name string) (string, bool) {
 	text, ok := c.layouts[strings.TrimSpace(name)]

@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/template"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/template"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // ErrSourceKind reports an inline template source whose kind nothing here

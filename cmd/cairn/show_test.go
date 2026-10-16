@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/catalog"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/catalog"
 )
 
 // TestShow covers the command that answers "what does this profile actually

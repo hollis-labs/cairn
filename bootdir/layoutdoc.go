@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/profile"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 	"gopkg.in/yaml.v3"
 )
 

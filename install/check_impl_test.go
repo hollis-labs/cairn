@@ -14,10 +14,10 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/install"
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/slots"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/install"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/slots"
 )
 
 // Every fixture below is built under t.TempDir(). Nothing here names a real

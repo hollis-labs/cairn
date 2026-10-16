@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentlaunch"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentlaunch"
 )
 
 // ErrNoProfile reports that an [Instance] carries no resolved profile. Every

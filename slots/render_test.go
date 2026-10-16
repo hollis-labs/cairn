@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/slots"
-	"github.com/hollis-labs/agentkit/agentcontext"
-	"github.com/hollis-labs/agentkit/agentcontext/resolvers"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/slots"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
+	"github.com/hollis-labs/libs/harness/core/agentcontext/resolvers"
 )
 
 // TestASlotThatProducedNothingRendersNothingAtAll is docs/plan.md §5 asserted

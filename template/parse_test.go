@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/template"
+	"github.com/hollis-labs/cairn/template"
 )
 
 func TestParse_Tags(t *testing.T) {

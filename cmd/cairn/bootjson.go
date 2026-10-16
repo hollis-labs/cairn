@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chrispian/cairn/bootdir"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/bootdir"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 )
 
 // bootReport is what `cairn boot --json` prints: everything a launcher needs to

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/slots"
-	"github.com/chrispian/cairn/template"
+	"github.com/hollis-labs/cairn/slots"
+	"github.com/hollis-labs/cairn/template"
 )
 
 // writeText writes a fixture file the hydrator reads.

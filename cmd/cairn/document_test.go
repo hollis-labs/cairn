@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/template"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/template"
 )
 
 // bodyBundle writes a minimal bundle whose profiles carry bodies rather than

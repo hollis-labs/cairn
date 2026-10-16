@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // testLayout returns the claude layout, which is the only one implemented.

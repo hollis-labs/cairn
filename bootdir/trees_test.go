@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // treeInstance returns an instance whose manifest copies dest from source.

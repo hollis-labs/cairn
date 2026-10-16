@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // The three composition flags, described once so that `cairn boot` and

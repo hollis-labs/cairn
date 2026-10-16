@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/scope"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/scope"
 )
 
 // specIndent is one level of the indentation a manifest value is shown at, and

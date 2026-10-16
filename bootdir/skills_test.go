@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // skillsInstance returns an instance declaring names, copied from source.

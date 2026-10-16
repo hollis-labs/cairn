@@ -3,8 +3,8 @@ package slots
 import (
 	"fmt"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // Expander is [profile.Expander]: the environment a manifest's variables are

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/chrispian/cairn/bootdir"
+	"github.com/hollis-labs/cairn/bootdir"
 )
 
 // ErrDestinationOccupied reports that something which is not a regular file

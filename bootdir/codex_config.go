@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/profile"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 	"github.com/pelletier/go-toml/v2"
 )
 

@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // ErrTreeSource reports a declared tree whose source directory is unusable:

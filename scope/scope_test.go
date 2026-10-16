@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chrispian/cairn/scope"
+	"github.com/hollis-labs/cairn/scope"
 )
 
 // TestContainsDirectly covers the cases every filesystem can exhibit: the

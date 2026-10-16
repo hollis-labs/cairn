@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // ExecFileMode is the mode a copied file is planted with when the file it was

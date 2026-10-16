@@ -28,7 +28,7 @@ var ErrForeignRepository = errors.New("boot root is inside a repository that is 
 //
 // This refuses rather than warns, for three reasons. Cairn already refuses the
 // neighbouring hazard — a boot directory at or inside the scope, see
-// [github.com/chrispian/cairn/scope.CheckBootDir] — so refusal is the
+// [github.com/hollis-labs/cairn/scope.CheckBootDir] — so refusal is the
 // established answer for "cairn is about to write somewhere that will confuse
 // the session it is writing for". The failure this catches is silent and
 // plausible by construction, and a warning printed by a boot that then exits 0
@@ -55,7 +55,7 @@ var ErrForeignRepository = errors.New("boot root is inside a repository that is 
 //
 // The empty scope passes. It declares no target, so there is no repository to
 // contradict and no scope the message could name — the same answer
-// [github.com/chrispian/cairn/scope.Contains] gives an empty ancestor. That
+// [github.com/hollis-labs/cairn/scope.Contains] gives an empty ancestor. That
 // leaves a boot with no declared scope unguarded, which is a real gap and a
 // deliberate one: this check is defined as "a repository other than the
 // declared scope", and with nothing declared it has no question to ask.

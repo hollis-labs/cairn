@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
+	"github.com/hollis-labs/cairn/bootdir"
 )
 
 // markRepo makes dir the root of a git working tree the cheap way: the marker

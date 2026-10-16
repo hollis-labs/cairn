@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestPartIsPath is the detection rule, written out as a table.

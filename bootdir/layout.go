@@ -25,8 +25,8 @@ import (
 	"errors"
 	"io/fs"
 
-	"github.com/chrispian/cairn/profile"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/profile"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 )
 
 // SkillFileName is the file a skill directory must hold for a harness to load

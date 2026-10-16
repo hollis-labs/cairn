@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestTheLayoutDocumentsPinEveryPath is the regression net the constants used
@@ -33,7 +33,7 @@ func TestTheLayoutDocumentsPinEveryPath(t *testing.T) {
 				Renders:         []string{"templates", "mcp", "settings", "skills", "prompts", "subagents", "trees", "files"},
 				Agents:          Artifact{Dest: "AGENTS.md", RelPath: "AGENTS.md"},
 				Pointer:         Artifact{Dest: "CLAUDE.md", RelPath: "CLAUDE.md"},
-				MCP:             Artifact{RelPath: ".mcp.json"},
+				MCP:             Artifact{RelPath: ".mcp.json", Mode: 0o600},
 				Settings:        Artifact{RelPath: ".claude/settings.json"},
 				SkillsDir:       ".claude/skills",
 				SubagentsDir:    ".claude/agents",

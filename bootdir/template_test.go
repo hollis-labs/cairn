@@ -241,7 +241,7 @@ func TestSubstituteLandsAMultiLineSectionOnASingleMarkerLine(t *testing.T) {
 // test sits: on each replacement, not on the finished line.
 //
 // A slot that produced nothing arrives here as the empty string —
-// [github.com/chrispian/cairn/slots.Sections] is explicit about that — so a
+// [github.com/hollis-labs/cairn/slots.Sections] is explicit about that — so a
 // section made only of whitespace is a section that produced something. Testing
 // the finished line instead would silently drop it, and this function is not
 // the place that decides a slot's output was worthless.

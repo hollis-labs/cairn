@@ -18,7 +18,7 @@ var ErrLayoutCycle = errors.New("layout extends cycle")
 // LayoutLoader is what a chain's `{{ extends }}` is resolved through: one
 // layout by name, parsed.
 //
-// It is an interface for the reason [github.com/chrispian/cairn/profile.Loader]
+// It is an interface for the reason [github.com/hollis-labs/cairn/profile.Loader]
 // is one: this package reads nothing off disk, so where a layout comes from —
 // a bundle directory, a test's map, one day something else — is the caller's.
 type LayoutLoader interface {
@@ -58,7 +58,7 @@ type Frame struct {
 // Compose resolves a profile chain and its layouts into one [Frame].
 //
 // docs is the profile cascade, ancestor-first and ending with whatever a
-// composition added — exactly [github.com/chrispian/cairn/profile.Resolved]'s
+// composition added — exactly [github.com/hollis-labs/cairn/profile.Resolved]'s
 // own fold order. A nil member is skipped, because a profile with no body is
 // an ordinary member of a cascade.
 //
