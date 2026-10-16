@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/catalog"
+	"github.com/hollis-labs/cairn/catalog"
 )
 
 // TestList covers the command that answers "what can I boot" against a

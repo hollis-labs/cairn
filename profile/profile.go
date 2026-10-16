@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hollis-labs/agentkit/agentcontext"
-	"github.com/hollis-labs/agentkit/agentlaunch"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
+	"github.com/hollis-labs/libs/harness/core/agentlaunch"
 )
 
 // Provider names the CLI coding agent harness a profile's boot directory is
@@ -60,7 +60,7 @@ var ErrSettingsProvider = errors.New("settings document is not keyed by provider
 // check reads. The caller receives a fresh slice it may modify.
 //
 // Knowing a name is not the same as having a layout for it: that is
-// [github.com/chrispian/cairn/bootdir.LayoutFor]'s answer, a separate answer
+// [github.com/hollis-labs/cairn/bootdir.LayoutFor]'s answer, a separate answer
 // to a separate question, deliberately not folded in here. Every name here has
 // a boot tree today; opencode has no installed layer, and its tree does not
 // render spec.mcp or spec.settings yet. A profile may declare settings for a
@@ -283,7 +283,7 @@ type Resolved struct {
 	//
 	// A list is what the render engine needs, because composing bodies is not
 	// concatenating them. A body is a template — see
-	// [github.com/chrispian/cairn/template] — so the chain's sections fold
+	// [github.com/hollis-labs/cairn/template] — so the chain's sections fold
 	// closest-wins and one document supplies the shape. Handing that engine a
 	// string with the chain already flattened into it would make both
 	// impossible.
@@ -448,7 +448,7 @@ func (s Spec) Subagent() (json.RawMessage, bool) {
 // materialization target rather than a property of the content, so one profile
 // serves every target and the choice belongs to whoever is materializing it,
 // not to whoever wrote the profile. The caller passes the target it is
-// rendering for: [github.com/chrispian/cairn/bootdir.RenderSettings] passes
+// rendering for: [github.com/hollis-labs/cairn/bootdir.RenderSettings] passes
 // its layout's provider, which is what `--provider` selects.
 //
 // Nothing here reformats the bytes. The selected document is the sub-value's

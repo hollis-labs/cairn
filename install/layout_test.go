@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestInstalledRenderersComeFromTheTree covers the registration list now that

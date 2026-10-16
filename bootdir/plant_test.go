@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/hollis-labs/go-agent-wrapper/plant"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/libs/harness/core/agentlaunch/planting"
 )
 
 // TestPlantFilesWritesModesPastTheUmask covers the three properties the write
@@ -95,8 +95,8 @@ func TestPlantFilesIsAllOrNothing(t *testing.T) {
 	}
 }
 
-// TestPlanterSpeaksThePortfolioContract covers the plant.Planter adapter: the
-// members of a plant.Spec cairn can place, and the honest refusal of the ones
+// TestPlanterSpeaksThePortfolioContract covers the planting.Planter adapter: the
+// members of a planting.PlantSpec cairn can place, and the honest refusal of the ones
 // it cannot.
 func TestPlanterSpeaksThePortfolioContract(t *testing.T) {
 	lay, err := bootdir.LayoutFor("claude")
@@ -106,7 +106,7 @@ func TestPlanterSpeaksThePortfolioContract(t *testing.T) {
 	p := bootdir.Planter{Layout: lay}
 	dir := filepath.Join(t.TempDir(), "s1")
 
-	res, err := p.Plant(context.Background(), dir, plant.Spec{
+	res, err := p.Plant(context.Background(), dir, planting.PlantSpec{
 		Files:            map[string][]byte{"AGENTS.md": []byte("hi\n")},
 		MCPConfig:        []byte("{}\n"),
 		ProviderSettings: map[string][]byte{"claude": []byte("{}\n")},
@@ -126,8 +126,8 @@ func TestPlanterSpeaksThePortfolioContract(t *testing.T) {
 	// Hooks and a recovery prompt are refused rather than dropped: a caller
 	// handing cairn hooks and receiving a directory without them has no way to
 	// tell.
-	for name, spec := range map[string]plant.Spec{
-		"hooks":             {Hooks: []plant.Hook{{Provider: "claude", Name: "PreToolUse"}}},
+	for name, spec := range map[string]planting.PlantSpec{
+		"hooks":             {Hooks: []planting.PlantHook{{Provider: "claude", Name: "PreToolUse"}}},
 		"a recovery prompt": {RecoveryPrompt: "resume"},
 		"another provider's settings": {
 			ProviderSettings: map[string][]byte{"codex": []byte("{}")},

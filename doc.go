@@ -10,5 +10,5 @@
 // are a black box: Cairn provides the shape and validates the shape, and
 // whoever owns the profiles owns the meaning.
 //
-// The command is [github.com/chrispian/cairn/cmd/cairn].
+// The command is [github.com/hollis-labs/cairn/cmd/cairn].
 package cairn

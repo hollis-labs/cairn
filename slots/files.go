@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // ErrFileSource reports a files entry whose source could not be resolved. It

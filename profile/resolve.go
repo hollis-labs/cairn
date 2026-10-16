@@ -57,7 +57,7 @@ type Loader interface {
 //
 // [Profile.Body] is carried rather than composed: [Resolved.Bodies] is every
 // declared body in fold order, and what composing them means belongs to the
-// engine that renders them — see [github.com/chrispian/cairn/template]. It
+// engine that renders them — see [github.com/hollis-labs/cairn/template]. It
 // used to be concatenated here, ancestor-first, and the concatenation was
 // never rendered by anything.
 //

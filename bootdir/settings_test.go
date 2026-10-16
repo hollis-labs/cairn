@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestSettingsAreWrittenVerbatim is the assertion behind docs/plan.md §6.

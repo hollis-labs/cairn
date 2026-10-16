@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // TestMergeSettingsDocument is the ownership rule stated case by case: a key

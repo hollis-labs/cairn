@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/slots"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/slots"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // manifest decodes a JSON literal into a profile.Spec, so a test declares its

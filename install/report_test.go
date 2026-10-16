@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/install"
+	"github.com/hollis-labs/cairn/install"
 )
 
 // mixedReport is one report carrying every status, with its entries in the

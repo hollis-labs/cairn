@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // profileExt is the extension a profile file is written with. Anything else in

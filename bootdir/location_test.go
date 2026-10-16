@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
+	"github.com/hollis-labs/cairn/bootdir"
 )
 
 // TestDefaultRootPrecedence pins the two properties of the boot root that a

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 func TestProviderValid(t *testing.T) {

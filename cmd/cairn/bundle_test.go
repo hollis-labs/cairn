@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/catalog"
+	"github.com/hollis-labs/cairn/catalog"
 )
 
 // bundleProfile is one profile file, as a test declares it. It is the file's

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/scope"
-	"github.com/chrispian/cairn/slots"
-	goprovider "github.com/hollis-labs/go-providers/provider"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/scope"
+	"github.com/hollis-labs/cairn/slots"
+	goprovider "github.com/hollis-labs/libs/harness/core/adapters/provider"
 )
 
 // TestBootEndToEnd is the MVP gate: cairn boot writes a directory that can be

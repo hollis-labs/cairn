@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // DirName is the base name of the configuration directory a bundle defaults

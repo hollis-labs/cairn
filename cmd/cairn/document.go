@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/slots"
-	"github.com/chrispian/cairn/template"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/slots"
+	"github.com/hollis-labs/cairn/template"
 )
 
 // renderDocument renders a resolved profile's body chain into the one

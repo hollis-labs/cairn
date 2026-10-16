@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // renderTemplates returns every file the manifest's templates produce, each at

@@ -3,7 +3,7 @@
 // — from the same profile a boot directory is rendered from.
 //
 // It is the same artifacts at different paths. The renderers are
-// [github.com/chrispian/cairn/bootdir]'s, run over an [bootdir.Instance] whose
+// [github.com/hollis-labs/cairn/bootdir]'s, run over an [bootdir.Instance] whose
 // [bootdir.Layout] names the installed paths, so the two layers cannot drift
 // apart the way two copies of a renderer would. What is not shared is what
 // only makes sense per session: a boot file assembled from slots, the MCP
@@ -24,8 +24,8 @@ import (
 	"io/fs"
 	"strconv"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // StagingPattern is the [os.MkdirTemp] pattern for the directory a render is

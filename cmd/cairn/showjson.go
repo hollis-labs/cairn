@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // showJSONFlagUsage describes --json on `cairn show`. It says "instead of"

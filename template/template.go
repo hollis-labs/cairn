@@ -13,7 +13,7 @@
 // parse time and handed back as data; whoever owns the dangerous half resolves
 // them and passes the text in through [Options].Sources. So a template tree is
 // shareable and a renderer cannot reach a command, a file or a URL — see
-// [github.com/chrispian/cairn/slots], which is the half that can.
+// [github.com/hollis-labs/cairn/slots], which is the half that can.
 //
 // # The syntax
 //

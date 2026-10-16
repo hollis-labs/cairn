@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/hollis-labs/go-agent-wrapper/plant"
+	"github.com/hollis-labs/libs/harness/core/agentlaunch/planting"
 )
 
 // ErrExists reports that the boot directory already exists. A boot directory
@@ -17,41 +17,41 @@ import (
 // mixture of two materializations.
 var ErrExists = errors.New("boot directory already exists")
 
-// ErrUnsupportedPlantSpec reports that a [plant.Spec] asked for something
+// ErrUnsupportedPlantSpec reports that a [planting.PlantSpec] asked for something
 // Cairn does not plant. It is an error rather than a silent omission: a caller
 // handing Cairn hooks and receiving a directory without them has no way to
 // tell.
 var ErrUnsupportedPlantSpec = errors.New("plant spec asks for something cairn does not plant")
 
 // Planter writes a boot directory through the same contract the rest of the
-// portfolio plants through, so a caller holding a [plant.Planter] can hand
+// portfolio plants through, so a caller holding a [planting.Planter] can hand
 // work to Cairn without knowing it is Cairn.
 //
-// Cairn's own boot path does not go through it. [plant.Spec] carries file
+// Cairn's own boot path does not go through it. [planting.PlantSpec] carries file
 // contents but no file modes, and Cairn plants skills whose executable bit is
 // load-bearing, so [PlantFiles] is the entry Cairn itself uses and this is the
 // adapter onto it.
 type Planter struct {
-	// Layout resolves the provider-shaped members of a [plant.Spec] —
+	// Layout resolves the provider-shaped members of a [planting.PlantSpec] —
 	// MCPConfig and ProviderSettings — onto the paths that provider's harness
 	// reads them from.
 	Layout Layout
 }
 
-// Plant implements [plant.Planter]. It converts spec into rendered files and
+// Plant implements [planting.Planter]. It converts spec into rendered files and
 // writes them into bootDir with the same all-or-nothing guarantee
 // [PlantFiles] gives.
-func (p Planter) Plant(ctx context.Context, bootDir string, spec plant.Spec) (plant.Result, error) {
+func (p Planter) Plant(ctx context.Context, bootDir string, spec planting.PlantSpec) (planting.PlantResult, error) {
 	files, err := p.filesFromSpec(spec)
 	if err != nil {
-		return plant.Result{}, err
+		return planting.PlantResult{}, err
 	}
 	return PlantFiles(ctx, bootDir, files)
 }
 
-// filesFromSpec converts a [plant.Spec] into rendered files, resolving its
+// filesFromSpec converts a [planting.PlantSpec] into rendered files, resolving its
 // provider-shaped members through p.Layout.
-func (p Planter) filesFromSpec(spec plant.Spec) ([]File, error) {
+func (p Planter) filesFromSpec(spec planting.PlantSpec) ([]File, error) {
 	if len(spec.Hooks) > 0 {
 		return nil, fmt.Errorf("%w: %d hooks", ErrUnsupportedPlantSpec, len(spec.Hooks))
 	}
@@ -90,7 +90,7 @@ func (p Planter) filesFromSpec(spec plant.Spec) ([]File, error) {
 		})
 	}
 
-	// A plant.Spec carries its files in a map, so render order has to be
+	// A planting.PlantSpec carries its files in a map, so render order has to be
 	// recovered before the paths are checked for collisions.
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 
@@ -117,19 +117,19 @@ func (p Planter) filesFromSpec(spec plant.Spec) ([]File, error) {
 // tree beside it.
 //
 // It refuses a target that already exists, reporting [ErrExists].
-func PlantFiles(ctx context.Context, dir string, files []File) (plant.Result, error) {
+func PlantFiles(ctx context.Context, dir string, files []File) (planting.PlantResult, error) {
 	if err := ctx.Err(); err != nil {
-		return plant.Result{}, err
+		return planting.PlantResult{}, err
 	}
 	if err := writeTree(dir, files); err != nil {
-		return plant.Result{}, err
+		return planting.PlantResult{}, err
 	}
 	planted := make([]string, 0, len(files))
 	for _, f := range files {
 		planted = append(planted, filepath.Join(dir, filepath.FromSlash(f.Path)))
 	}
 	sort.Strings(planted)
-	return plant.Result{PlantedFiles: planted}, nil
+	return planting.PlantResult{PlantedFiles: planted}, nil
 }
 
 // writeTree writes files into a temporary directory beside dir and renames it
@@ -184,4 +184,4 @@ func writeTree(dir string, files []File) error {
 }
 
 // Ensure Planter satisfies the portfolio's planting contract at compile time.
-var _ plant.Planter = Planter{}
+var _ planting.Planter = Planter{}

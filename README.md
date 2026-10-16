@@ -51,7 +51,7 @@ make build                 # → bin/cairn
 go install ./cmd/cairn
 ```
 
-The Go module path is still `github.com/chrispian/cairn`; the repository
+The Go module path is still `github.com/hollis-labs/cairn`; the repository
 moved to the `hollis-labs` organization and the old URL redirects.
 
 ## Quick start

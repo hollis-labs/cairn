@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // bootRenderers is every renderer a boot tree can name, keyed by the manifest

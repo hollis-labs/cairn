@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // DropUnresolved is an [agentcontext.Renderer] that removes every slot which

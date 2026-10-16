@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chrispian/cairn/profile"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 // testEnv returns an [Expander] over a map, so a test states what the

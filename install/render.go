@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/profile"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/profile"
 )
 
 // ErrUnexpectedArtifact reports that a renderer produced a path outside the
@@ -152,7 +152,7 @@ func Render(lay *Layer) ([]File, error) {
 // moved.
 //
 // Sections carries what the caller resolved, which for this layer is the kinds
-// in [github.com/chrispian/cairn/slots.DeterministicKinds] and no others. That
+// in [github.com/hollis-labs/cairn/slots.DeterministicKinds] and no others. That
 // is what makes an installed template worth writing — shared prose composes
 // from static sources — while keeping [Check] meaningful: a check re-renders
 // and diffs against disk, so a slot whose value can differ between two renders

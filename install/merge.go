@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/chrispian/cairn/bootdir"
+	"github.com/hollis-labs/cairn/bootdir"
 )
 
 // mergeSettingsDocument returns the settings document an install writes where

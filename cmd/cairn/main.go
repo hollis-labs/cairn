@@ -18,13 +18,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chrispian/cairn/bootdir"
-	"github.com/chrispian/cairn/catalog"
-	"github.com/chrispian/cairn/install"
-	"github.com/chrispian/cairn/profile"
-	"github.com/chrispian/cairn/scope"
-	"github.com/chrispian/cairn/slots"
-	"github.com/hollis-labs/agentkit/agentcontext"
+	"github.com/hollis-labs/cairn/bootdir"
+	"github.com/hollis-labs/cairn/catalog"
+	"github.com/hollis-labs/cairn/install"
+	"github.com/hollis-labs/cairn/profile"
+	"github.com/hollis-labs/cairn/scope"
+	"github.com/hollis-labs/cairn/slots"
+	"github.com/hollis-labs/libs/harness/core/agentcontext"
 )
 
 const usage = `cairn assembles files and writes them into a directory.
@@ -766,7 +766,7 @@ func splitTarget(args []string) (target string, rest []string) {
 //
 // It is the second of two mechanisms and not the only one. Substitution fills a
 // value marker only from [bootdir.ValueNames] too, so a key that got past here
-// would still render nothing — see [github.com/chrispian/cairn/bootdir.Substitute].
+// would still render nothing — see [github.com/hollis-labs/cairn/bootdir.Substitute].
 // This narrowing stays because it is the cheaper place to be right: the map
 // this builds is handed to a library that renders whatever it is given for
 // every artifact, not only templates, and the manifest values it would be
@@ -795,7 +795,7 @@ func instanceValues(values map[string]string) map[string]string {
 //
 // A marker naming a slot no profile declared is not reported, and neither is a
 // value cairn knows that is empty for this instance. See
-// [github.com/chrispian/cairn/bootdir.Unfilled] for why each is told from the
+// [github.com/hollis-labs/cairn/bootdir.Unfilled] for why each is told from the
 // case beside it.
 //
 // It is a report and not a refusal, matching the slot rule it follows from: a
@@ -957,7 +957,7 @@ func bootPrompts(inst *bootdir.Instance) []reportedTemplate {
 // file is at ".claude/AGENTS.md", and one walking every destination would name
 // files this layer never writes at all. The registration list decides which
 // destinations are in play and the layout decides where each one lands, which
-// is the same pair [github.com/chrispian/cairn/install.Render] renders from —
+// is the same pair [github.com/hollis-labs/cairn/install.Render] renders from —
 // and both now come from one layout document, so they cannot disagree.
 //
 // The destination a template renders from is the artifact's own, not this
