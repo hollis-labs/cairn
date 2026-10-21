@@ -63,6 +63,7 @@ release yet; everything below is unreleased.
 
 ### Security
 
+- Go toolchain 1.26.10 (`go` directive and CI pin) for GO-2026-6809 (crypto/x509); no behavior change.
 - A boot root inside a git repository other than the scope's is refused.
 - Values that are not meant to reach instruction files (such as MCP
   environment) cannot be substituted into rendered prose.
